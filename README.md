@@ -1,42 +1,112 @@
 # spritore
 
-Deterministic sprite generator for [MapLibre GL](https://maplibre.org/) styles.
-Rust core with JS/WASM bindings (browser & Node) and a CLI.
+[MapLibre GL](https://maplibre.org/) sprite generation in Rust and WebAssembly.
 
-Unlike existing sprite tools, spritore is built around three guarantees:
+spritore turns a set of SVG icons into a MapLibre-compatible PNG sprite sheet
+and JSON index. Its Rust core is available through browser and Node APIs for
+both complete sprite sheets and individual icon rasterization.
 
-1. **Byte-deterministic output** — the same input SVGs always produce the same
-   `sprite.png` / `sprite.json` bytes, on every platform. Sprite assets become
-   diffable and reviewable in git.
-2. **JS/WASM bindings** — the exact same generator runs in the browser and in
-   Node, not just as a CLI. Built for live style editors
-   ([Kartore](https://github.com/Kartore)).
-3. **Size-optimized output** — lossless palette reduction, PNG filter
-   selection, zopfli compression, and duplicate-icon deduplication by default.
+## Why spritore?
 
-> **Status: early development.** The design plan lives in
-> [docs/plan.md](docs/plan.md). This Rust rewrite is published as
-> [`@kartore/spritore`](https://www.npmjs.com/package/@kartore/spritore) —
-> versions `0.0.x` are the previous TypeScript implementation, which lives in
-> the git history of this repository.
+- **Browser and Node APIs** — the Rust core is exposed through one WebAssembly
+  module, including a per-icon API for live map previews.
+- **Compact PNG output** — palette reduction, PNG filter selection, Zopfli
+  compression, and pixel-identical icon deduplication are built in.
 
-## Planned interfaces
+The Rust core and JavaScript/WebAssembly library are implemented. The Node and
+Rust command-line interfaces are still under development and are not part of
+the current package API.
 
-```
-spritore build <svg-dir> -o <out-dir> [--name sprite] [--ratio 1,2] [--fast]
+## Install
+
+```sh
+pnpm add @kartore/spritore
 ```
 
-```ts
-import { init, buildSpriteSheet } from '@kartore/spritore';
+Or with npm:
+
+```sh
+npm install @kartore/spritore
+```
+
+## Quick start
+
+```js
+import {
+	buildSpriteSheet,
+	init,
+	renderIcon,
+} from "@kartore/spritore";
+
+const markerSvg = `
+	<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16">
+		<circle cx="8" cy="8" r="6" fill="#4264fb" />
+	</svg>
+`;
 
 await init();
-const { png, index } = buildSpriteSheet(
-	[{ id: 'airport', svg: '<svg …>' }],
-	2
+
+const marker = renderIcon("marker", markerSvg, 2);
+const sprite = buildSpriteSheet(
+	[{ id: "marker", svg: markerSvg }],
+	2,
+);
+
+console.log(marker.width, marker.height, marker.pixels);
+console.log(sprite.png, sprite.index, sprite.indexJson);
+```
+
+In Node, import the Node entry point. It reads the bundled wasm file from the
+package and exposes the same API:
+
+```js
+import { readFile } from "node:fs/promises";
+
+import { buildSpriteSheet, init } from "@kartore/spritore/node";
+
+await init();
+const markerSvg = await readFile("marker.svg", "utf8");
+const sprite = buildSpriteSheet(
+	[{ id: "marker", svg: markerSvg }],
+	1,
+	{ fast: true },
 );
 ```
 
+See the [package README](js/README.md) for the complete API and usage notes.
+
+## Compression
+
+The default compression mode uses Zopfli for smaller downloads. Pass
+`{ fast: true }` to use miniz for faster previews. The two modes produce
+different PNG encodings. Pixel-identical icons share one rectangle while
+retaining separate index entries.
+
+## SVG limitations
+
+- External resources such as linked images and web fonts are not loaded.
+- SVG `<text>` is not supported in this release because fonts are not bundled.
+  Text elements may parse successfully but are not rendered.
+
+## Development
+
+The repository uses its pinned Rust toolchain plus Node and pnpm.
+
+```sh
+cargo fmt --check
+cargo clippy --workspace -- -D warnings
+cargo test --workspace
+
+pnpm -C js install
+pnpm -C js build
+pnpm -C js test
+```
+
+Building the JavaScript package also requires the exact `wasm-bindgen-cli`
+version declared in `crates/spritore-wasm/Cargo.toml` and Binaryen's
+`wasm-opt`. See [js/README.md](js/README.md#development) for setup details.
+
 ## License
 
-Licensed under either of [Apache License, Version 2.0](LICENSE-APACHE) or
-[MIT license](LICENSE-MIT) at your option.
+Licensed under either of [Apache License, Version 2.0](LICENSE-APACHE) or the
+[MIT License](LICENSE-MIT), at your option.
