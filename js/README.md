@@ -18,6 +18,40 @@ Or with npm:
 npm install @kartore/spritore
 ```
 
+## CLI
+
+The package includes a `spritore` executable. It reads lowercase `.svg` files
+from a directory and writes MapLibre PNG and JSON sprite assets:
+
+```sh
+npx @kartore/spritore build ./icons -o ./public/sprites
+```
+
+By default it generates:
+
+```text
+public/sprites/
+├── sprite.png
+├── sprite.json
+├── sprite@2x.png
+└── sprite@2x.json
+```
+
+Available options:
+
+```text
+spritore build <svg-dir> -o <out-dir> [--name sprite] [--ratio 1,2] [--fast] [--skip-invalid]
+```
+
+- `--name <name>` changes the output basename.
+- `--ratio <ratios>` accepts comma-separated integers from 1 to 255.
+- `--fast` uses faster miniz compression instead of Zopfli.
+- `--skip-invalid` reports SVG parse errors and continues with valid icons.
+
+Without `--skip-invalid`, an invalid SVG fails the command before any output is
+written. Icon IDs are derived from filename stems; characters outside
+`a-zA-Z0-9_-` become `-`, and collisions after conversion are errors.
+
 ## Browser
 
 ```js

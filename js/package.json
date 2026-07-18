@@ -1,8 +1,11 @@
 {
 	"name": "@kartore/spritore",
 	"version": "0.0.2",
-	"description": "Deterministic WebAssembly sprite generator for MapLibre GL styles",
+	"description": "WebAssembly sprite generator for MapLibre GL styles",
 	"type": "module",
+	"bin": {
+		"spritore": "./cli.mjs"
+	},
 	"exports": {
 		".": {
 			"types": "./index.d.ts",
@@ -17,6 +20,7 @@
 	},
 	"types": "./index.d.ts",
 	"files": [
+		"cli.mjs",
 		"index.mjs",
 		"node.mjs",
 		"index.d.ts",

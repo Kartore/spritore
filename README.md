@@ -13,9 +13,8 @@ both complete sprite sheets and individual icon rasterization.
 - **Compact PNG output** — palette reduction, PNG filter selection, Zopfli
   compression, and pixel-identical icon deduplication are built in.
 
-The Rust core and JavaScript/WebAssembly library are implemented. The Node and
-Rust command-line interfaces are still under development and are not part of
-the current package API.
+The npm package includes browser and Node APIs plus a command-line interface.
+An equivalent native Rust CLI is also available from this repository.
 
 ## Install
 
@@ -27,6 +26,33 @@ Or with npm:
 
 ```sh
 npm install @kartore/spritore
+```
+
+## CLI
+
+Build the default `sprite.png`, `sprite.json`, `sprite@2x.png`, and
+`sprite@2x.json` files from a directory of SVG icons:
+
+```sh
+npx @kartore/spritore build ./icons -o ./public/sprites
+```
+
+The complete command is:
+
+```text
+spritore build <svg-dir> -o <out-dir> [--name sprite] [--ratio 1,2] [--fast] [--skip-invalid]
+```
+
+- `--name` changes the output basename.
+- `--ratio` selects one or more comma-separated pixel ratios.
+- `--fast` uses faster miniz compression instead of Zopfli.
+- `--skip-invalid` reports and excludes SVG parse errors.
+
+Rust users can install the native CLI from a checkout of this repository:
+
+```sh
+cargo install --path crates/spritore-cli
+spritore build ./icons -o ./public/sprites
 ```
 
 ## Quick start
