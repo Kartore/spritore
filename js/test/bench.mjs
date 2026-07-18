@@ -15,7 +15,7 @@ if (process.env.NODE_TEST_CONTEXT === undefined) {
 
 async function main() {
 	const fixtureDirectory = new URL(
-		"../../../crates/spritore-core/tests/fixtures/",
+		"../../crates/spritore-core/tests/fixtures/",
 		import.meta.url,
 	);
 	const fixtureNames = ["dot", "pin", "grad", "line", "dot-copy", "spectrum"];

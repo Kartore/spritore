@@ -9,11 +9,11 @@ import {
 } from "@kartore/spritore/node";
 
 const fixtureDirectory = new URL(
-	"../../../crates/spritore-core/tests/fixtures/",
+	"../../crates/spritore-core/tests/fixtures/",
 	import.meta.url,
 );
 const goldenDirectory = new URL(
-	"../../../crates/spritore-core/tests/golden/",
+	"../../crates/spritore-core/tests/golden/",
 	import.meta.url,
 );
 const fixtureNames = ["dot", "pin", "grad", "line", "dot-copy", "spectrum"];

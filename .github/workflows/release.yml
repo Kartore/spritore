@@ -1,0 +1,67 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish-npm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain from rust-toolchain.toml
+        run: rustup toolchain install
+
+      - name: Install wasm-bindgen-cli
+        uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-bindgen@0.2.125
+
+      - name: Install binaryen (wasm-opt)
+        run: |
+          curl -fsSL https://github.com/WebAssembly/binaryen/releases/download/version_131/binaryen-version_131-x86_64-linux.tar.gz | tar xz
+          echo "$PWD/binaryen-version_131/bin" >> "$GITHUB_PATH"
+
+      - uses: pnpm/setup@5d160c5bc68a09337ad0d5654e237e03253b5879 # v1.0.0
+        with:
+          package-json-file: "js/package.json"
+          install: false
+
+      - name: Install pnpm dependencies
+        working-directory: js
+        run: pnpm install
+
+      - name: Verify tag matches package version
+        working-directory: js
+        run: |
+          node -e '
+            const { version } = require("./package.json");
+            const tag = process.env.GITHUB_REF_NAME;
+            if (tag !== `v${version}`) {
+              console.error(`tag ${tag} does not match package version v${version}`);
+              process.exit(1);
+            }
+          '
+
+      - name: Rust gates
+        run: |
+          cargo fmt --check
+          cargo clippy --workspace -- -D warnings
+          cargo test --workspace
+
+      - name: Build wasm package
+        working-directory: js
+        run: pnpm build
+
+      - name: Test npm package
+        working-directory: js
+        run: pnpm test
+
+      - name: Publish to npm
+        working-directory: js
+        run: pnpm publish --access public --no-git-checks

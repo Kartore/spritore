@@ -28,7 +28,7 @@
 ## 触ってはいけないもの
 
 - `rust-toolchain.toml`、`Cargo.toml` の `[profile.release]`
-- `npm/spritore/` は Phase 2 以降の作業指示書の範囲でのみ変更する
+- `js/` は Phase 2 以降の作業指示書の範囲でのみ変更する
 - `.codex/` などエージェント環境の副産物をコミットしない
 
 ## 検証コマンド

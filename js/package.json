@@ -1,6 +1,6 @@
 {
 	"name": "@kartore/spritore",
-	"version": "0.1.0-alpha.0",
+	"version": "0.0.2",
 	"description": "Deterministic WebAssembly sprite generator for MapLibre GL styles",
 	"type": "module",
 	"exports": {
@@ -31,6 +31,15 @@
 	"repository": {
 		"type": "git",
 		"url": "https://github.com/Kartore/spritore.git",
-		"directory": "npm/spritore"
+		"directory": "js"
+	},
+	"devDependencies": {},
+	"packageManager": "pnpm@11.13.1",
+	"devEngines": {
+		"runtime": {
+			"name": "node",
+			"version": "26.5.0",
+			"onFail": "download"
+		}
 	}
 }
