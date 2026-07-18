@@ -5,8 +5,8 @@
 作業前に必ず読むこと:
 
 1. [docs/plan.md](docs/plan.md) — 設計計画の正。**「Phase 0 結果」と「ハマりどころ」は特に重要**
+   (docs/ はローカル管理でリポジトリには含まれない)
 2. 発注された Phase の作業指示書 (docs/phase*-*.md)
-3. `spike/` — Phase 0 の実証コード。**参照専用 (変更禁止)**。パイプライン全体の動く見本
 
 ## このプロジェクトの絶対律: バイト決定論
 
@@ -27,7 +27,7 @@
 
 ## 触ってはいけないもの
 
-- `spike/` (参照専用)、`rust-toolchain.toml`、`Cargo.toml` の `[profile.release]`
+- `rust-toolchain.toml`、`Cargo.toml` の `[profile.release]`
 - `npm/spritore/` は Phase 2 以降の作業指示書の範囲でのみ変更する
 - `.codex/` などエージェント環境の副産物をコミットしない
 

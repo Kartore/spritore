@@ -1,12 +1,10 @@
 [workspace]
 resolver = "3"
-# spike/ は git 管理外のローカル実証コード (自前の workspace を持つ standalone crate)
 members = [
 	"crates/spritore-core",
 	"crates/spritore-cli",
 	"crates/spritore-wasm",
 ]
-exclude = ["spike"]
 
 [workspace.package]
 version = "0.1.0-alpha.0"
