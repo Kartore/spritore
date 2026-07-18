@@ -1,0 +1,14 @@
+[package]
+name = "spritore-cli"
+description = "Deterministic MapLibre sprite generator — CLI"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "spritore"
+path = "src/main.rs"
+
+[dependencies]
+spritore-core = { path = "../spritore-core" }

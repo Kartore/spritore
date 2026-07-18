@@ -1,0 +1,44 @@
+{
+  "dot": {
+    "x": 37,
+    "y": 1,
+    "width": 30,
+    "height": 30,
+    "pixelRatio": 2
+  },
+  "dot-copy": {
+    "x": 37,
+    "y": 1,
+    "width": 30,
+    "height": 30,
+    "pixelRatio": 2
+  },
+  "grad": {
+    "x": 101,
+    "y": 1,
+    "width": 40,
+    "height": 28,
+    "pixelRatio": 2
+  },
+  "line": {
+    "x": 1,
+    "y": 1,
+    "width": 34,
+    "height": 34,
+    "pixelRatio": 2
+  },
+  "pin": {
+    "x": 69,
+    "y": 1,
+    "width": 30,
+    "height": 30,
+    "pixelRatio": 2
+  },
+  "spectrum": {
+    "x": 1,
+    "y": 37,
+    "width": 1024,
+    "height": 8,
+    "pixelRatio": 2
+  }
+}

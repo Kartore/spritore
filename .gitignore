@@ -1,4 +1,10 @@
-dist
-node_modules
-.idea
-.eslintcache
+/target
+node_modules/
+.pnpm-store/
+npm/spritore/pkg/
+npm/spritore/dist/
+/spike-out-*
+/spike-serve/
+.codex/
+docs
+spike

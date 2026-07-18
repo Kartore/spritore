@@ -1,0 +1,36 @@
+{
+	"name": "@kartore/spritore",
+	"version": "0.1.0-alpha.0",
+	"description": "Deterministic WebAssembly sprite generator for MapLibre GL styles",
+	"type": "module",
+	"exports": {
+		".": {
+			"types": "./index.d.ts",
+			"import": "./index.mjs",
+			"default": "./index.mjs"
+		},
+		"./node": {
+			"types": "./index.d.ts",
+			"import": "./node.mjs",
+			"default": "./node.mjs"
+		}
+	},
+	"types": "./index.d.ts",
+	"files": [
+		"index.mjs",
+		"node.mjs",
+		"index.d.ts",
+		"pkg/"
+	],
+	"scripts": {
+		"build": "node scripts/build.mjs",
+		"test": "node --test test/",
+		"bench": "node test/bench.mjs"
+	},
+	"license": "MIT OR Apache-2.0",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/Kartore/spritore.git",
+		"directory": "npm/spritore"
+	}
+}
