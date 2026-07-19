@@ -1,6 +1,6 @@
 {
 	"name": "@kartore/spritore",
-	"version": "0.1.0",
+	"version": "0.1.1",
 	"description": "WebAssembly sprite generator for MapLibre GL styles",
 	"type": "module",
 	"bin": {
