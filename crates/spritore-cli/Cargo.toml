@@ -1,15 +1,35 @@
 [package]
-name = "spritore-cli"
-description = "MapLibre sprite generator — CLI"
+name = "spritore"
+description = "MapLibre sprite generation library and command-line interface"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
+publish.workspace = true
+readme = "README.md"
+documentation = "https://docs.rs/spritore"
+keywords = ["maplibre", "sprite", "svg", "png", "cli"]
+categories = ["command-line-utilities", "graphics", "multimedia::images"]
+
+[features]
+default = ["cli"]
+cli = ["dep:clap"]
+
+[lib]
+path = "src/lib.rs"
 
 [[bin]]
 name = "spritore"
 path = "src/main.rs"
+required-features = ["cli"]
+
+[[test]]
+name = "cli"
+path = "tests/cli.rs"
+required-features = ["cli"]
 
 [dependencies]
-clap = { version = "4.6.0", features = ["derive"] }
-spritore-core = { path = "../spritore-core" }
+clap = { version = "4.6.0", features = ["derive"], optional = true }
+spritore-core = { path = "../spritore-core", version = "=0.1.0" }

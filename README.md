@@ -3,13 +3,15 @@
 [MapLibre GL](https://maplibre.org/) sprite generation in Rust and WebAssembly.
 
 spritore turns a set of SVG icons into a MapLibre-compatible PNG sprite sheet
-and JSON index. Its Rust core is available through browser and Node APIs for
-both complete sprite sheets and individual icon rasterization.
+and JSON index. Its API is available in Rust, browsers, and Node for both
+complete sprite sheets and individual icon rasterization.
 
 ## Why spritore?
 
 - **Browser and Node APIs** — the Rust core is exposed through one WebAssembly
   module, including a per-icon API for live map previews.
+- **Rust library and native CLI** — use the same sprite engine from application
+  code or install the `spritore` command.
 - **Compact PNG output** — palette reduction, PNG filter selection, Zopfli
   compression, and pixel-identical icon deduplication are built in.
 
@@ -17,6 +19,8 @@ The npm package includes browser and Node APIs plus a command-line interface.
 An equivalent native Rust CLI is also available from this repository.
 
 ## Install
+
+### JavaScript
 
 ```sh
 pnpm add @kartore/spritore
@@ -26,6 +30,14 @@ Or with npm:
 
 ```sh
 npm install @kartore/spritore
+```
+
+### Rust
+
+Disable default features when only the library API is needed:
+
+```sh
+cargo add spritore --no-default-features
 ```
 
 ## CLI
@@ -48,14 +60,16 @@ spritore build <svg-dir> -o <out-dir> [--name sprite] [--ratio 1,2] [--fast] [--
 - `--fast` uses faster miniz compression instead of Zopfli.
 - `--skip-invalid` reports and excludes SVG parse errors.
 
-Rust users can install the native CLI from a checkout of this repository:
+The native Rust CLI provides the same command:
 
 ```sh
-cargo install --path crates/spritore-cli
+cargo install spritore
 spritore build ./icons -o ./public/sprites
 ```
 
 ## Quick start
+
+### JavaScript
 
 ```js
 import {
@@ -100,6 +114,28 @@ const sprite = buildSpriteSheet(
 ```
 
 See the [package README](js/README.md) for the complete API and usage notes.
+
+### Rust
+
+```rust
+use spritore::{BuildOptions, build_sprite_sheet, index_to_json, render_icon};
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+	let svg = r##"<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16">
+		<circle cx="8" cy="8" r="6" fill="#4264fb" />
+	</svg>"##;
+	let icons = [render_icon("marker", svg, 1)?];
+	let sheet = build_sprite_sheet(&icons, 1, BuildOptions::default())?;
+
+	std::fs::write("sprite.png", sheet.png)?;
+	std::fs::write("sprite.json", index_to_json(&sheet.index))?;
+	Ok(())
+}
+```
+
+See the [`spritore` crate README](crates/spritore-cli/README.md) for feature
+selection and the low-level [`spritore-core` README](crates/spritore-core/README.md)
+for direct core usage.
 
 ## Compression
 

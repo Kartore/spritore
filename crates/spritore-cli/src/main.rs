@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use clap::{Args, Parser, Subcommand};
-use spritore_core::{BuildOptions, Error, build_sprite_sheet, index_to_json, render_icon};
+use spritore::{BuildOptions, Error, build_sprite_sheet, index_to_json, render_icon};
 
 const USAGE: &str = concat!(
 	"Usage: spritore build <svg-dir> -o <out-dir> ",

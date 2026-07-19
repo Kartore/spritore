@@ -1,10 +1,7 @@
-//! spritore core — deterministic MapLibre sprite generation.
+//! Core MapLibre sprite generation for spritore.
 //!
 //! Pure logic only: no filesystem access, no clocks, no randomness, no
-//! wasm-bindgen. Everything here must be byte-deterministic — the same input
-//! set produces the same output bytes on every platform (CLI, browser, Node).
-//!
-//! See `docs/plan.md` at the repository root for the design plan.
+//! wasm-bindgen.
 
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
@@ -156,7 +153,7 @@ fn deduplicate<'a>(icons: &[&'a RenderedIcon]) -> Deduplicated<'a> {
 	}
 }
 
-/// Builds a deterministic MapLibre PNG sprite sheet from rasterized icons.
+/// Builds a MapLibre PNG sprite sheet from rasterized icons.
 ///
 /// Input order does not affect the output. Pixel-identical icons share one
 /// packed rectangle while retaining separate index entries.
@@ -233,7 +230,7 @@ pub fn build_sprite_sheet(
 	Ok(SpriteSheet { png, index })
 }
 
-/// Serializes a MapLibre sprite index as deterministic pretty JSON.
+/// Serializes a MapLibre sprite index as pretty JSON.
 ///
 /// Keys are emitted in their [`BTreeMap`] order, indentation is two spaces,
 /// field names are `x`, `y`, `width`, `height`, and `pixelRatio`, and the
