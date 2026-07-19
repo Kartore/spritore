@@ -32,12 +32,24 @@ Or with npm:
 npm install @kartore/spritore
 ```
 
-### Rust
+### Rust with Cargo
 
-Disable default features when only the library API is needed:
+Add the Rust API without the CLI dependency:
 
 ```sh
 cargo add spritore --no-default-features
+```
+
+Use the lower-level engine directly when building another integration layer:
+
+```sh
+cargo add spritore-core
+```
+
+Install the native command-line interface with Cargo:
+
+```sh
+cargo install spritore
 ```
 
 ## CLI
@@ -60,10 +72,9 @@ spritore build <svg-dir> -o <out-dir> [--name sprite] [--ratio 1,2] [--fast] [--
 - `--fast` uses faster miniz compression instead of Zopfli.
 - `--skip-invalid` reports and excludes SVG parse errors.
 
-The native Rust CLI provides the same command:
+The native Rust CLI installed through Cargo provides the same command:
 
 ```sh
-cargo install spritore
 spritore build ./icons -o ./public/sprites
 ```
 
