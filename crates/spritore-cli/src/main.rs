@@ -41,7 +41,7 @@ struct BuildArgs {
 	/// Comma-separated pixel ratios.
 	#[arg(long, default_value = "1,2")]
 	ratio: String,
-	/// Uses miniz instead of Zopfli compression.
+	/// Prioritizes generation speed over PNG file size.
 	#[arg(long)]
 	fast: bool,
 	/// Skips SVG parse errors instead of failing the build.

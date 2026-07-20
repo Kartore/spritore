@@ -1,6 +1,6 @@
 [package]
 name = "spritore-core"
-description = "MapLibre sprite generation core library"
+description = "In-memory SVG rendering and MapLibre sprite sheet generation for Rust"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

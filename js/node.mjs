@@ -9,10 +9,13 @@ import {
 let initialization;
 
 /**
- * Initializes the bundled WebAssembly module exactly once.
+ * Loads the package before rendering icons or sprite sheets in Node.
  *
- * With no input, Node reads the package's single bundled wasm file and passes
- * its bytes to the same initializer used by the browser entry point.
+ * With no input, Node loads the WebAssembly file included in the package.
+ * Repeated calls return the first initialization promise.
+ *
+ * @param {BufferSource | Promise<Response> | Response} [input]
+ * @returns {Promise<void>}
  */
 export function init(input) {
 	if (initialization === undefined) {

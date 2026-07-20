@@ -1,26 +1,26 @@
 # spritore
 
-[MapLibre GL](https://maplibre.org/) sprite generation in Rust and WebAssembly.
+spritore turns SVG icons into the PNG sprite sheet and JSON index used by
+[MapLibre GL](https://maplibre.org/) styles. It can also rasterize a single SVG
+into RGBA pixels for `map.addImage` previews.
 
-spritore turns a set of SVG icons into a MapLibre-compatible PNG sprite sheet
-and JSON index. Its API is available in Rust, browsers, and Node for both
-complete sprite sheets and individual icon rasterization.
+Use spritore from a command line, a Rust application, a browser, or Node. It is
+well suited to style build pipelines, CI asset generation, map editors with
+live icon previews, and applications that let users export sprite assets.
 
-## Why spritore?
+## Choose an interface
 
-- **Browser and Node APIs** — the Rust core is exposed through one WebAssembly
-  module, including a per-icon API for live map previews.
-- **Rust library and native CLI** — use the same sprite engine from application
-  code or install the `spritore` command.
-- **Compact PNG output** — palette reduction, PNG filter selection, Zopfli
-  compression, and pixel-identical icon deduplication are built in.
-
-The npm package includes browser and Node APIs plus a command-line interface.
-An equivalent native Rust CLI is also available from this repository.
+| Interface | Good for | Start with |
+| --- | --- | --- |
+| npm CLI | JavaScript projects and CI jobs | `npx @kartore/spritore build ...` |
+| Cargo CLI | Rust-oriented build environments | `cargo install spritore` |
+| Browser API | Map editors, previews, and in-browser exports | `@kartore/spritore` |
+| Node API | Build scripts and server-side asset generation | `@kartore/spritore/node` |
+| Rust API | Applications that process SVG and sprite data in memory | `spritore` or `spritore-core` |
 
 ## Install
 
-### JavaScript
+For browser, Node, or npm CLI use:
 
 ```sh
 pnpm add @kartore/spritore
@@ -32,21 +32,20 @@ Or with npm:
 npm install @kartore/spritore
 ```
 
-### Rust with Cargo
-
-Add the Rust API without the CLI dependency:
+For the Rust API:
 
 ```sh
 cargo add spritore --no-default-features
 ```
 
-Use the lower-level engine directly when building another integration layer:
+Use `spritore-core` directly when your integration only needs the in-memory
+rendering and sprite-building types:
 
 ```sh
 cargo add spritore-core
 ```
 
-Install the native command-line interface with Cargo:
+Install the command-line interface with Cargo:
 
 ```sh
 cargo install spritore
@@ -54,11 +53,21 @@ cargo install spritore
 
 ## CLI
 
-Build the default `sprite.png`, `sprite.json`, `sprite@2x.png`, and
-`sprite@2x.json` files from a directory of SVG icons:
+Build standard- and high-density sprite assets from the lowercase `.svg` files
+in a directory:
 
 ```sh
 npx @kartore/spritore build ./icons -o ./public/sprites
+```
+
+The default output is:
+
+```text
+public/sprites/
+├── sprite.png
+├── sprite.json
+├── sprite@2x.png
+└── sprite@2x.json
 ```
 
 The complete command is:
@@ -67,20 +76,25 @@ The complete command is:
 spritore build <svg-dir> -o <out-dir> [--name sprite] [--ratio 1,2] [--fast] [--skip-invalid]
 ```
 
-- `--name` changes the output basename.
-- `--ratio` selects one or more comma-separated pixel ratios.
-- `--fast` uses faster miniz compression instead of Zopfli.
-- `--skip-invalid` reports and excludes SVG parse errors.
+- `--name <name>` changes the output basename.
+- `--ratio <ratios>` accepts comma-separated integers from 1 to 255.
+- `--fast` prioritizes generation speed over PNG file size.
+- `--skip-invalid` reports SVG parse errors and continues with valid icons.
 
-The native Rust CLI installed through Cargo provides the same command:
+Without `--skip-invalid`, an invalid SVG stops the command before output files
+are written. Icon IDs come from filename stems; characters outside
+`a-zA-Z0-9_-` become `-`, and collisions after conversion are errors.
+
+The Cargo-installed command uses the same syntax:
 
 ```sh
 spritore build ./icons -o ./public/sprites
 ```
 
-## Quick start
+## Browser
 
-### JavaScript
+Initialize the package before rendering. `renderIcon` returns the dimensions
+and straight-alpha RGBA data expected by MapLibre's `map.addImage` API.
 
 ```js
 import {
@@ -98,35 +112,49 @@ const markerSvg = `
 await init();
 
 const marker = renderIcon("marker", markerSvg, 2);
+map.addImage("marker", {
+	width: marker.width,
+	height: marker.height,
+	data: marker.pixels,
+});
+
 const sprite = buildSpriteSheet(
 	[{ id: "marker", svg: markerSvg }],
 	2,
 );
-
-console.log(marker.width, marker.height, marker.pixels);
-console.log(sprite.png, sprite.index, sprite.indexJson);
 ```
 
-In Node, import the Node entry point. It reads the bundled wasm file from the
-package and exposes the same API:
+`sprite.png` is a `Uint8Array`, `sprite.index` is the parsed MapLibre index,
+and `sprite.indexJson` is a ready-to-write JSON string.
+
+## Node
+
+Import the `/node` entry point when working outside a browser:
 
 ```js
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 
 import { buildSpriteSheet, init } from "@kartore/spritore/node";
 
 await init();
+
 const markerSvg = await readFile("marker.svg", "utf8");
 const sprite = buildSpriteSheet(
 	[{ id: "marker", svg: markerSvg }],
 	1,
 	{ fast: true },
 );
+
+await writeFile("sprite.png", sprite.png);
+await writeFile("sprite.json", sprite.indexJson);
 ```
 
-See the [package README](js/README.md) for the complete API and usage notes.
+See the [npm package README](js/README.md) for initialization options and the
+complete TypeScript API.
 
-### Rust
+## Rust
+
+The Rust API accepts SVG strings and returns the PNG bytes and MapLibre index:
 
 ```rust
 use spritore::{BuildOptions, build_sprite_sheet, index_to_json, render_icon};
@@ -144,16 +172,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
-See the [`spritore` crate README](crates/spritore-cli/README.md) for feature
-selection and the low-level [`spritore-core` README](crates/spritore-core/README.md)
-for direct core usage.
+See the [`spritore` crate README](crates/spritore-cli/README.md) for Cargo
+features and the [`spritore-core` README](crates/spritore-core/README.md) for
+the lower-level API.
 
-## Compression
+## Build modes
 
-The default compression mode uses Zopfli for smaller downloads. Pass
-`{ fast: true }` to use miniz for faster previews. The two modes produce
-different PNG encodings. Pixel-identical icons share one rectangle while
-retaining separate index entries.
+The default mode prioritizes smaller PNG files and is intended for final
+assets. Set `fast: true` in the JavaScript or Rust API, or pass `--fast` to the
+CLI, when quicker preview generation matters more than file size.
 
 ## SVG limitations
 

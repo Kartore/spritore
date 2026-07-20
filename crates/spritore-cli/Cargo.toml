@@ -1,6 +1,6 @@
 [package]
 name = "spritore"
-description = "MapLibre sprite generation library and command-line interface"
+description = "Generate MapLibre sprite sheets from SVG icons in Rust or from the command line"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

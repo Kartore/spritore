@@ -1,7 +1,9 @@
-//! Core MapLibre sprite generation for spritore.
+//! Rasterize SVG icons and build MapLibre-compatible sprite assets.
 //!
-//! Pure logic only: no filesystem access, no clocks, no randomness, no
-//! wasm-bindgen.
+//! Use [`render_icon`] to produce RGBA pixels for one icon, or combine rendered
+//! icons with [`build_sprite_sheet`] and serialize its index with
+//! [`index_to_json`]. The API accepts SVG text and returns in-memory image and
+//! index data, so applications can choose how to read and store their assets.
 
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
@@ -110,18 +112,18 @@ pub struct SpriteIndexEntry {
 	pub pixel_ratio: u8,
 }
 
-/// A PNG sprite sheet and its ordered MapLibre index.
+/// A PNG sprite sheet and its MapLibre index.
 pub struct SpriteSheet {
 	/// The complete encoded PNG file.
 	pub png: Vec<u8>,
-	/// Sprite entries ordered by icon identifier.
+	/// Sprite entries keyed by icon identifier.
 	pub index: BTreeMap<String, SpriteIndexEntry>,
 }
 
 /// Options controlling sprite sheet construction.
 #[derive(Clone, Copy, Default)]
 pub struct BuildOptions {
-	/// Uses miniz zlib compression instead of Zopfli when `true`.
+	/// Prioritizes generation speed over PNG file size when `true`.
 	pub fast: bool,
 }
 
@@ -155,8 +157,8 @@ fn deduplicate<'a>(icons: &[&'a RenderedIcon]) -> Deduplicated<'a> {
 
 /// Builds a MapLibre PNG sprite sheet from rasterized icons.
 ///
-/// Input order does not affect the output. Pixel-identical icons share one
-/// packed rectangle while retaining separate index entries.
+/// Returns an error when the slice is empty, identifiers are duplicated, or an
+/// icon has a zero width or height.
 pub fn build_sprite_sheet(
 	icons: &[RenderedIcon],
 	pixel_ratio: u8,
@@ -232,9 +234,8 @@ pub fn build_sprite_sheet(
 
 /// Serializes a MapLibre sprite index as pretty JSON.
 ///
-/// Keys are emitted in their [`BTreeMap`] order, indentation is two spaces,
-/// field names are `x`, `y`, `width`, `height`, and `pixelRatio`, and the
-/// result always has a trailing newline.
+/// The result uses two-space indentation, the MapLibre field names `x`, `y`,
+/// `width`, `height`, and `pixelRatio`, and a trailing newline.
 pub fn index_to_json(index: &BTreeMap<String, SpriteIndexEntry>) -> String {
 	if index.is_empty() {
 		return "{}\n".to_owned();

@@ -1,6 +1,6 @@
 [package]
 name = "spritore-wasm"
-description = "MapLibre sprite generation — wasm-bindgen bindings"
+description = "WebAssembly API for generating MapLibre sprite sheets from SVG icons"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -8,6 +8,7 @@ license.workspace = true
 repository.workspace = true
 homepage.workspace = true
 publish = false
+readme = "README.md"
 
 [lib]
 crate-type = ["cdylib", "rlib"]

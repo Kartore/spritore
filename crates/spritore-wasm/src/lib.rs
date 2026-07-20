@@ -1,7 +1,9 @@
-//! wasm-bindgen bindings for spritore-core.
+//! WebAssembly exports for SVG icon rendering and MapLibre sprite generation.
 //!
-//! Thin wrapper only — all logic lives in `spritore-core`. The npm package in
-//! `npm/spritore` wraps the generated wasm with browser/Node entry points.
+//! JavaScript and TypeScript applications can access these functions through
+//! the `@kartore/spritore` package's browser and Node entry points. Use
+//! [`render_icon`] for `map.addImage` pixel data or [`build_sprite_sheet`] for a
+//! complete PNG sprite and JSON index.
 
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
@@ -23,14 +25,23 @@ struct BuildOptionsInput {
 	fast: bool,
 }
 
-/// Rasterizes one SVG icon and returns straight-alpha RGBA pixels.
+/// Rasterizes one SVG icon and returns its dimensions and straight-alpha RGBA
+/// pixels.
+///
+/// The returned object has `id`, `width`, `height`, and `pixels` properties and
+/// can be used as MapLibre `map.addImage` image data.
 #[wasm_bindgen(js_name = renderIcon)]
 pub fn render_icon(id: &str, svg: &str, pixel_ratio: u8) -> Result<JsValue, JsError> {
 	let icon = spritore_core::render_icon(id, svg, pixel_ratio).map_err(core_error)?;
 	rendered_icon_to_js(&icon)
 }
 
-/// Builds a deterministic PNG sprite sheet from SVG icon sources.
+/// Builds a PNG sprite sheet and MapLibre index from SVG icon sources.
+///
+/// `icons` is an array of objects with `id` and `svg` properties. The returned
+/// object contains `png`, `index`, and ready-to-write `indexJson` properties.
+/// Set the `fast` build option when generation speed matters more than PNG file
+/// size.
 #[wasm_bindgen(js_name = buildSpriteSheet)]
 pub fn build_sprite_sheet(
 	icons: JsValue,

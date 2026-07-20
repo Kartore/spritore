@@ -1,10 +1,12 @@
 # @kartore/spritore
 
-WebAssembly sprite generation for [MapLibre GL](https://maplibre.org/) styles,
-with browser and Node entry points.
+`@kartore/spritore` turns SVG icons into the PNG sprite sheet and JSON index
+used by [MapLibre GL](https://maplibre.org/) styles. It can also rasterize one
+SVG into RGBA pixels for `map.addImage` previews.
 
-The package rasterizes individual SVG icons and builds complete PNG sprite
-sheets with their JSON indexes.
+The package can be used as a command, in a browser, or in Node. Typical uses
+include generating style assets during a build, adding live icon previews to a
+map editor, and letting users download a completed sprite from a web app.
 
 ## Install
 
@@ -45,14 +47,16 @@ spritore build <svg-dir> -o <out-dir> [--name sprite] [--ratio 1,2] [--fast] [--
 
 - `--name <name>` changes the output basename.
 - `--ratio <ratios>` accepts comma-separated integers from 1 to 255.
-- `--fast` uses faster miniz compression instead of Zopfli.
+- `--fast` prioritizes generation speed over PNG file size.
 - `--skip-invalid` reports SVG parse errors and continues with valid icons.
 
-Without `--skip-invalid`, an invalid SVG fails the command before any output is
-written. Icon IDs are derived from filename stems; characters outside
+Without `--skip-invalid`, an invalid SVG stops the command before output files
+are written. Icon IDs come from filename stems; characters outside
 `a-zA-Z0-9_-` become `-`, and collisions after conversion are errors.
 
 ## Browser
+
+Call and await `init()` before using the rendering functions:
 
 ```js
 import {
@@ -82,14 +86,14 @@ const sprite = buildSpriteSheet(
 );
 ```
 
-With no argument, `init()` resolves the wasm file bundled with the package.
-Initialization is cached, so repeated calls return the same promise. Calling
+With no argument, `init()` loads the WebAssembly file included in the package.
+Initialization is cached, so repeated calls return the first promise. Calling
 `renderIcon` or `buildSpriteSheet` before initialization throws an `Error`.
 
 ## Node
 
-Use the Node entry point so the bundled wasm is read from the filesystem and
-passed to the same initializer used by browsers:
+Use the `/node` entry point so `init()` can load the packaged WebAssembly file
+from the filesystem:
 
 ```js
 import { readFile, writeFile } from "node:fs/promises";
@@ -99,22 +103,26 @@ import { buildSpriteSheet, init } from "@kartore/spritore/node";
 await init();
 
 const markerSvg = await readFile("marker.svg", "utf8");
-const icons = [{ id: "marker", svg: markerSvg }];
-const sprite = buildSpriteSheet(icons, 1);
+const sprite = buildSpriteSheet(
+	[{ id: "marker", svg: markerSvg }],
+	1,
+);
+
 await writeFile("sprite.png", sprite.png);
 await writeFile("sprite.json", sprite.indexJson);
 ```
 
-Write `indexJson` directly when producing a sprite index. It is the
-preformatted JSON emitted by the Rust core, including its trailing newline.
+Write `indexJson` directly when creating a sprite index. The `index` property
+contains the parsed object for applications that need to inspect or transform
+entries.
 
 ## API
 
 ### `init(input?)`
 
-Initializes the WebAssembly module exactly once. The optional input can be a
-`BufferSource`, `Response`, or `Promise<Response>`; normally it should be
-omitted.
+Loads the package before rendering. The optional input can be a `BufferSource`,
+`Response`, or `Promise<Response>`; normal browser and Node usage can omit it.
+Repeated calls reuse the first initialization promise.
 
 ### `renderIcon(id, svg, pixelRatio)`
 
@@ -129,12 +137,14 @@ type RenderedIcon = {
 };
 ```
 
-The dimensions and pixel buffer can be passed directly to MapLibre's
-`map.addImage` API as shown above.
+Use the returned `width`, `height`, and `pixels` as MapLibre's
+`map.addImage` image data. A pixel ratio of `1` or `2` covers typical
+standard- and high-density previews.
 
 ### `buildSpriteSheet(icons, pixelRatio, options?)`
 
-Builds a complete MapLibre sprite sheet:
+Rasterizes a collection of SVG icons and returns complete MapLibre sprite
+assets:
 
 ```ts
 type SpriteSheet = {
@@ -154,22 +164,18 @@ type BuildOptions = {
 };
 ```
 
-Input order does not affect the output. Duplicate IDs and empty icon arrays are
-errors. Pixel-identical icons are packed once while keeping an index entry for
-every ID.
+Each input item has an `id` used as its index key and an `svg` string. Duplicate
+IDs, empty icon arrays, invalid SVG, and zero-sized icons are errors.
 
-## Compression modes
+## Build modes
 
-The default mode uses Zopfli for smaller downloads. It is intended for final
-assets and may be substantially slower than preview generation.
-
-Pass `{ fast: true }` to use miniz instead:
+The default mode prioritizes smaller PNG files and is intended for final
+assets. Pass `{ fast: true }` when quicker generation matters more than file
+size, such as during interactive previews:
 
 ```js
 const preview = buildSpriteSheet(icons, 2, { fast: true });
 ```
-
-The two modes produce different PNG encodings.
 
 ## SVG limitations
 
@@ -193,8 +199,8 @@ pnpm -C js pack --dry-run
 ```
 
 The build stops if `wasm-bindgen` has a different version or `wasm-opt` is not
-available. Generated files under `js/pkg/` are intentionally not committed;
-they are built before testing and publishing.
+available. Generated files under `js/pkg/` are built before testing and
+publishing.
 
 ## License
 

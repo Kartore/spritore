@@ -1,11 +1,16 @@
 # spritore-core
 
-Low-level Rust engine for generating MapLibre-compatible PNG sprite sheets and
-JSON indexes from SVG icons.
+`spritore-core` rasterizes SVG icons and builds MapLibre-compatible PNG sprite
+sheets with JSON indexes. Use it when a Rust application already owns the SVG
+input and wants to handle generated assets in memory.
 
-Most applications should depend on the `spritore` facade crate. Use
-`spritore-core` directly when building another integration layer or when the
-smallest dependency surface is preferred.
+It supports two common workflows:
+
+- Render one SVG to straight-alpha RGBA pixels for MapLibre's `map.addImage`.
+- Combine multiple rendered icons into a PNG sprite sheet and index.
+
+Most Rust applications can use the `spritore` crate, which re-exports this API.
+Depend on `spritore-core` directly when you do not need the `spritore` command.
 
 ## Install
 
@@ -17,10 +22,10 @@ Or add it to `Cargo.toml`:
 
 ```toml
 [dependencies]
-spritore-core = "0.1.0"
+spritore-core = "0.1.1"
 ```
 
-## Usage
+## Build a sprite sheet
 
 ```rust
 use spritore_core::{
@@ -40,8 +45,27 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
-The crate performs no filesystem access itself. Callers provide SVG strings
-and decide where generated assets are written.
+The API operates on data supplied by the caller. Read SVG files before calling
+`render_icon`, and write `SpriteSheet::png` and `index_to_json(...)` wherever
+your application stores sprite assets.
+
+Use `BuildOptions { fast: true }` for quicker preview generation. The default
+mode prioritizes a smaller PNG for final assets.
+
+## API overview
+
+- `render_icon` turns one SVG string into a `RenderedIcon`.
+- `build_sprite_sheet` combines rendered icons into a `SpriteSheet`.
+- `index_to_json` converts the returned index into ready-to-write MapLibre JSON.
+
+Duplicate icon IDs, empty icon collections, invalid SVG, and zero-sized icons
+are reported through `Error`.
+
+## SVG limitations
+
+- External resources such as linked images and web fonts are not loaded.
+- SVG `<text>` is not supported because fonts are not bundled. Text elements
+  may parse successfully but are not rendered.
 
 ## License
 

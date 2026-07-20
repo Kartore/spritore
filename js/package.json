@@ -1,7 +1,7 @@
 {
 	"name": "@kartore/spritore",
 	"version": "0.1.1",
-	"description": "WebAssembly sprite generator for MapLibre GL styles",
+	"description": "Generate MapLibre sprite sheets from SVG icons in browsers, Node, and the command line",
 	"type": "module",
 	"bin": {
 		"spritore": "./cli.mjs"
