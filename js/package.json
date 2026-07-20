@@ -1,6 +1,6 @@
 {
 	"name": "@kartore/spritore",
-	"version": "0.1.1",
+	"version": "0.2.0",
 	"description": "Generate MapLibre sprite sheets from SVG icons in browsers, Node, and the command line",
 	"type": "module",
 	"bin": {
