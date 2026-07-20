@@ -93,13 +93,13 @@ spritore build ./icons -o ./public/sprites
 
 ## Browser
 
-Initialize the package before rendering. `renderIcon` returns the dimensions
-and straight-alpha RGBA data expected by MapLibre's `map.addImage` API.
+The rendering functions initialize the bundled WebAssembly module on their
+first call. `renderIcon` returns the dimensions and straight-alpha RGBA data
+expected by MapLibre's `map.addImage` API.
 
-```js
+```ts
 import {
 	buildSpriteSheet,
-	init,
 	renderIcon,
 } from "@kartore/spritore";
 
@@ -109,16 +109,14 @@ const markerSvg = `
 	</svg>
 `;
 
-await init();
-
-const marker = renderIcon("marker", markerSvg, 2);
+const marker = await renderIcon("marker", markerSvg, 2);
 map.addImage("marker", {
 	width: marker.width,
 	height: marker.height,
 	data: marker.pixels,
 });
 
-const sprite = buildSpriteSheet(
+const sprite = await buildSpriteSheet(
 	[{ id: "marker", svg: markerSvg }],
 	2,
 );
@@ -131,15 +129,13 @@ and `sprite.indexJson` is a ready-to-write JSON string.
 
 Import the `/node` entry point when working outside a browser:
 
-```js
+```ts
 import { readFile, writeFile } from "node:fs/promises";
 
-import { buildSpriteSheet, init } from "@kartore/spritore/node";
-
-await init();
+import { buildSpriteSheet } from "@kartore/spritore/node";
 
 const markerSvg = await readFile("marker.svg", "utf8");
-const sprite = buildSpriteSheet(
+const sprite = await buildSpriteSheet(
 	[{ id: "marker", svg: markerSvg }],
 	1,
 	{ fast: true },
@@ -149,8 +145,10 @@ await writeFile("sprite.png", sprite.png);
 await writeFile("sprite.json", sprite.indexJson);
 ```
 
-See the [npm package README](js/README.md) for initialization options and the
-complete TypeScript API.
+See the [npm package README](js/README.md) for advanced WebAssembly input
+options and the complete TypeScript API. Result objects and sprite index
+entries are frozen plain objects; returned byte arrays are caller-owned and
+need no cleanup.
 
 ## Rust
 
@@ -197,9 +195,11 @@ cargo fmt --check
 cargo clippy --workspace -- -D warnings
 cargo test --workspace
 
-pnpm -C js install
-pnpm -C js build
-pnpm -C js test
+pnpm install
+pnpm build
+pnpm typecheck
+pnpm test
+pnpm bench
 ```
 
 Building the JavaScript package also requires the exact `wasm-bindgen-cli`

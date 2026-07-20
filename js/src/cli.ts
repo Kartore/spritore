@@ -2,15 +2,32 @@
 
 import { readFile, readdir, stat, writeFile, mkdir } from "node:fs/promises";
 import { basename, extname, join } from "node:path";
-import { parseArgs } from "node:util";
+import {
+	parseArgs,
+	type ParseArgsOptionsConfig,
+} from "node:util";
 
-import { buildSpriteSheet, init, renderIcon } from "./node.mjs";
+import {
+	buildSpriteSheet,
+	renderIcon,
+	type IconSource,
+} from "./node.js";
 
 const USAGE =
 	"Usage: spritore build <svg-dir> -o <out-dir> " +
 	"[--name sprite] [--ratio 1,2] [--fast] [--skip-invalid]";
 
 class UsageError extends Error {}
+
+interface Source extends IconSource {
+	readonly fileName: string;
+}
+
+interface Output {
+	readonly ratio: number;
+	readonly png: Uint8Array;
+	readonly indexJson: string;
+}
 
 try {
 	await main();
@@ -22,60 +39,79 @@ try {
 	process.exitCode = 1;
 }
 
-async function main() {
+async function main(): Promise<void> {
 	const { positionals, values } = parseArguments();
-	if (values.help) {
+	if (values.help === true) {
 		console.log(USAGE);
 		return;
 	}
 	if (positionals.length !== 2 || positionals[0] !== "build") {
 		throw new UsageError("expected the `build` subcommand and one SVG directory");
 	}
-	if (values.output === undefined) {
+	const inputDirectory = positionals[1];
+	if (inputDirectory === undefined) {
+		throw new UsageError("expected one SVG directory");
+	}
+	const outputDirectory = values.output;
+	if (typeof outputDirectory !== "string") {
 		throw new UsageError("the `-o, --output <out-dir>` option is required");
 	}
 
-	const inputDirectory = positionals[1];
 	await requireInputDirectory(inputDirectory);
-	const name = values.name ?? "sprite";
+	const name = typeof values.name === "string" ? values.name : "sprite";
 	validateOutputName(name);
-	const ratios = parseRatios(values.ratio ?? "1,2");
+	const ratios = parseRatios(
+		typeof values.ratio === "string" ? values.ratio : "1,2",
+	);
 
-	await init();
 	const sources = await readSources(inputDirectory);
-	const validSources = validateSources(sources, values["skip-invalid"] ?? false);
-	const outputs = ratios.map((ratio) => {
-		const sheet = buildSpriteSheet(
-			validSources.map(({ id, svg }) => ({ id, svg })),
+	const validSources = await validateSources(
+		sources,
+		values["skip-invalid"] === true,
+	);
+	const icons = validSources.map(({ id, svg }) => ({ id, svg }));
+	const outputs: Output[] = [];
+	for (const ratio of ratios) {
+		const sheet = await buildSpriteSheet(
+			icons,
 			ratio,
-			values.fast ? { fast: true } : undefined,
+			values.fast === true ? { fast: true } : undefined,
 		);
-		return { ratio, png: sheet.png, indexJson: sheet.indexJson };
-	});
+		outputs.push({
+			ratio,
+			png: sheet.png,
+			indexJson: sheet.indexJson,
+		});
+	}
 
-	await mkdir(values.output, { recursive: true });
+	await mkdir(outputDirectory, { recursive: true });
 	for (const output of outputs) {
 		const suffix = output.ratio === 1 ? "" : `@${output.ratio}x`;
-		await writeFile(join(values.output, `${name}${suffix}.png`), output.png);
 		await writeFile(
-			join(values.output, `${name}${suffix}.json`),
+			join(outputDirectory, `${name}${suffix}.png`),
+			output.png,
+		);
+		await writeFile(
+			join(outputDirectory, `${name}${suffix}.json`),
 			output.indexJson,
 		);
 	}
 }
 
 function parseArguments() {
+	const options = {
+		output: { type: "string", short: "o" },
+		name: { type: "string" },
+		ratio: { type: "string" },
+		fast: { type: "boolean" },
+		"skip-invalid": { type: "boolean" },
+		help: { type: "boolean", short: "h" },
+	} satisfies ParseArgsOptionsConfig;
+
 	try {
 		return parseArgs({
 			allowPositionals: true,
-			options: {
-				output: { type: "string", short: "o" },
-				name: { type: "string" },
-				ratio: { type: "string" },
-				fast: { type: "boolean" },
-				"skip-invalid": { type: "boolean" },
-				help: { type: "boolean", short: "h" },
-			},
+			options,
 			strict: true,
 		});
 	} catch (error) {
@@ -83,7 +119,7 @@ function parseArguments() {
 	}
 }
 
-async function requireInputDirectory(directory) {
+async function requireInputDirectory(directory: string): Promise<void> {
 	let metadata;
 	try {
 		metadata = await stat(directory);
@@ -95,7 +131,7 @@ async function requireInputDirectory(directory) {
 	}
 }
 
-function validateOutputName(name) {
+function validateOutputName(name: string): void {
 	if (name.length === 0) {
 		throw new UsageError("--name must not be empty");
 	}
@@ -104,7 +140,7 @@ function validateOutputName(name) {
 	}
 }
 
-function parseRatios(value) {
+function parseRatios(value: string): number[] {
 	const parts = value.split(",");
 	if (
 		parts.length === 0 ||
@@ -123,13 +159,13 @@ function parseRatios(value) {
 	return ratios;
 }
 
-function invalidRatio(value) {
+function invalidRatio(value: string): UsageError {
 	return new UsageError(
 		`invalid --ratio \`${value}\`: expected comma-separated integers from 1 to 255`,
 	);
 }
 
-async function readSources(directory) {
+async function readSources(directory: string): Promise<Source[]> {
 	const entries = (await readdir(directory, { withFileTypes: true }))
 		.filter((entry) => entry.isFile() && extname(entry.name) === ".svg")
 		.sort((left, right) =>
@@ -139,8 +175,8 @@ async function readSources(directory) {
 		throw new Error(`no SVG files found in ${directory}`);
 	}
 
-	const ids = new Map();
-	const sources = [];
+	const ids = new Map<string, string>();
+	const sources: Source[] = [];
 	for (const entry of entries) {
 		const stem = basename(entry.name, ".svg");
 		const id = sanitizeId(stem);
@@ -161,15 +197,18 @@ async function readSources(directory) {
 	return sources;
 }
 
-function sanitizeId(value) {
+function sanitizeId(value: string): string {
 	return value.replace(/[^a-zA-Z0-9_-]/gu, "-");
 }
 
-function validateSources(sources, skipInvalid) {
-	const valid = [];
+async function validateSources(
+	sources: readonly Source[],
+	skipInvalid: boolean,
+): Promise<Source[]> {
+	const valid: Source[] = [];
 	for (const source of sources) {
 		try {
-			renderIcon(source.id, source.svg, 1);
+			await renderIcon(source.id, source.svg, 1);
 			valid.push(source);
 		} catch (error) {
 			const message = errorMessage(error);
@@ -186,6 +225,6 @@ function validateSources(sources, skipInvalid) {
 	return valid;
 }
 
-function errorMessage(error) {
+function errorMessage(error: unknown): string {
 	return error instanceof Error ? error.message : String(error);
 }

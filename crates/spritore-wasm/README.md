@@ -5,7 +5,7 @@ building MapLibre-compatible PNG sprite sheets with JSON indexes.
 
 JavaScript and TypeScript applications should install
 [`@kartore/spritore`](../../js/README.md). That package provides browser and
-Node entry points, initialization helpers, type declarations, and the
+Node entry points, automatic initialization, type declarations, and the
 `spritore` command-line executable. This crate is built for that package and is
 not distributed as a standalone crates.io library.
 
@@ -27,8 +27,9 @@ limitations, see the [npm package README](../../js/README.md).
 Build and test the package from the repository root:
 
 ```sh
-pnpm -C js build
-pnpm -C js test
+pnpm build
+pnpm typecheck
+pnpm test
 ```
 
 The required tool versions and setup commands are listed in the

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
+import { existsSync } from "node:fs";
 import {
 	copyFile,
 	mkdir,
@@ -9,13 +10,12 @@ import {
 	rm,
 	writeFile,
 } from "node:fs/promises";
-import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 
-const cliPath = fileURLToPath(new URL("../cli.mjs", import.meta.url));
+const cliPath = fileURLToPath(new URL("../dist/cli.js", import.meta.url));
 const fixtureDirectory = fileURLToPath(
 	new URL("../../crates/spritore-core/tests/fixtures/", import.meta.url),
 );
@@ -74,7 +74,7 @@ test("Node CLI", async (context) => {
 		assert.match(skipped.stderr, /skipping `broken\.svg`/);
 		const index = JSON.parse(
 			await readFile(join(skippedOutput, "sprite.json"), "utf8"),
-		);
+		) as Record<string, unknown>;
 		assert.deepEqual(Object.keys(index), ["dot"]);
 	});
 
@@ -105,13 +105,16 @@ test("Node CLI", async (context) => {
 	});
 });
 
-function runCli(arguments_) {
+function runCli(arguments_: readonly string[]) {
 	return spawnSync(process.execPath, [cliPath, ...arguments_], {
 		encoding: "utf8",
 	});
 }
 
-async function assertGoldenOutput(outputDirectory, fast) {
+async function assertGoldenOutput(
+	outputDirectory: string,
+	fast: boolean,
+): Promise<void> {
 	assert.deepEqual((await readdir(outputDirectory)).sort(), [
 		"sprite.json",
 		"sprite.png",

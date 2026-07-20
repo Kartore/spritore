@@ -1,0 +1,19 @@
+{
+	"name": "spritore-workspace",
+	"private": true,
+	"scripts": {
+		"build": "pnpm --filter @kartore/spritore build",
+		"typecheck": "pnpm --filter @kartore/spritore typecheck",
+		"test": "pnpm --filter @kartore/spritore test",
+		"bench": "pnpm --filter @kartore/spritore bench"
+	},
+	"packageManager": "pnpm@11.13.1",
+	"devEngines": {
+		"runtime": {
+			"name": "node",
+			"version": "26.5.0",
+			"onFail": "download"
+		}
+	},
+	"devDependencies": {}
+}

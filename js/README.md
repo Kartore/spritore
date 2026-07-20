@@ -56,12 +56,12 @@ are written. Icon IDs come from filename stems; characters outside
 
 ## Browser
 
-Call and await `init()` before using the rendering functions:
+The rendering functions initialize the bundled WebAssembly module
+automatically on their first call:
 
-```js
+```ts
 import {
 	buildSpriteSheet,
-	init,
 	renderIcon,
 } from "@kartore/spritore";
 
@@ -71,39 +71,35 @@ const markerSvg = `
 	</svg>
 `;
 
-await init();
-
-const marker = renderIcon("marker", markerSvg, 2);
+const marker = await renderIcon("marker", markerSvg, 2);
 map.addImage("marker", {
 	width: marker.width,
 	height: marker.height,
 	data: marker.pixels,
 });
 
-const sprite = buildSpriteSheet(
+const sprite = await buildSpriteSheet(
 	[{ id: "marker", svg: markerSvg }],
 	2,
 );
 ```
 
-With no argument, `init()` loads the WebAssembly file included in the package.
-Initialization is cached, so repeated calls return the first promise. Calling
-`renderIcon` or `buildSpriteSheet` before initialization throws an `Error`.
+Initialization is cached across both functions. Advanced integrations can use
+the `wasm` option on the first call to provide custom WebAssembly bytes or a
+URL; normal browser usage does not need this option.
 
 ## Node
 
-Use the `/node` entry point so `init()` can load the packaged WebAssembly file
-from the filesystem:
+Use the `/node` entry point so the packaged WebAssembly file is loaded from the
+filesystem:
 
-```js
+```ts
 import { readFile, writeFile } from "node:fs/promises";
 
-import { buildSpriteSheet, init } from "@kartore/spritore/node";
-
-await init();
+import { buildSpriteSheet } from "@kartore/spritore/node";
 
 const markerSvg = await readFile("marker.svg", "utf8");
-const sprite = buildSpriteSheet(
+const sprite = await buildSpriteSheet(
 	[{ id: "marker", svg: markerSvg }],
 	1,
 );
@@ -114,26 +110,27 @@ await writeFile("sprite.json", sprite.indexJson);
 
 Write `indexJson` directly when creating a sprite index. The `index` property
 contains the parsed object for applications that need to inspect or transform
-entries.
+entries. Result objects, the index, and each index entry are frozen plain
+objects. The `Uint8Array` values are caller-owned and require no manual
+cleanup.
 
 ## API
 
-### `init(input?)`
+### `renderIcon(id, svg, pixelRatio, options?)`
 
-Loads the package before rendering. The optional input can be a `BufferSource`,
-`Response`, or `Promise<Response>`; normal browser and Node usage can omit it.
-Repeated calls reuse the first initialization promise.
-
-### `renderIcon(id, svg, pixelRatio)`
-
-Rasterizes one SVG and returns straight-alpha RGBA pixels:
+Rasterizes one SVG and asynchronously returns straight-alpha RGBA pixels:
 
 ```ts
 type RenderedIcon = {
-	id: string;
-	width: number;
-	height: number;
-	pixels: Uint8Array;
+	readonly id: string;
+	readonly width: number;
+	readonly height: number;
+	readonly pixels: Uint8Array;
+};
+
+type RenderIconOptions = {
+	readonly wasm?: string | URL | ArrayBuffer | Uint8Array |
+		Promise<string | URL | ArrayBuffer | Uint8Array>;
 };
 ```
 
@@ -143,24 +140,26 @@ standard- and high-density previews.
 
 ### `buildSpriteSheet(icons, pixelRatio, options?)`
 
-Rasterizes a collection of SVG icons and returns complete MapLibre sprite
-assets:
+Rasterizes a collection of SVG icons and asynchronously returns complete
+MapLibre sprite assets:
 
 ```ts
 type SpriteSheet = {
-	png: Uint8Array;
-	index: Record<string, {
-		x: number;
-		y: number;
-		width: number;
-		height: number;
-		pixelRatio: number;
-	}>;
-	indexJson: string;
+	readonly png: Uint8Array;
+	readonly index: Readonly<Record<string, {
+		readonly x: number;
+		readonly y: number;
+		readonly width: number;
+		readonly height: number;
+		readonly pixelRatio: number;
+	}>>;
+	readonly indexJson: string;
 };
 
 type BuildOptions = {
-	fast?: boolean;
+	readonly fast?: boolean;
+	readonly wasm?: string | URL | ArrayBuffer | Uint8Array |
+		Promise<string | URL | ArrayBuffer | Uint8Array>;
 };
 ```
 
@@ -173,8 +172,8 @@ The default mode prioritizes smaller PNG files and is intended for final
 assets. Pass `{ fast: true }` when quicker generation matters more than file
 size, such as during interactive previews:
 
-```js
-const preview = buildSpriteSheet(icons, 2, { fast: true });
+```ts
+const preview = await buildSpriteSheet(icons, 2, { fast: true });
 ```
 
 ## SVG limitations
@@ -191,16 +190,17 @@ wasm-bindgen CLI, Binaryen's `wasm-opt`, Node, and pnpm:
 ```sh
 rustup target add wasm32-unknown-unknown
 cargo install wasm-bindgen-cli --version 0.2.125 --locked
-pnpm -C js install
-pnpm -C js build
-pnpm -C js test
-pnpm -C js bench
-pnpm -C js pack --dry-run
+pnpm install
+pnpm build
+pnpm typecheck
+pnpm test
+pnpm bench
+pnpm --filter @kartore/spritore pack --dry-run
 ```
 
 The build stops if `wasm-bindgen` has a different version or `wasm-opt` is not
-available. Generated files under `js/pkg/` are built before testing and
-publishing.
+available. Generated files under `js/pkg/` and `js/dist/` are built before
+testing and publishing.
 
 ## License
 
