@@ -177,3 +177,25 @@ fn missing_input_directory_is_a_usage_error() {
 	assert!(String::from_utf8_lossy(&result.stderr).contains("Usage: spritore build"));
 	assert!(!output.exists());
 }
+
+#[test]
+fn sdf_flag_marks_every_icon_as_sdf() {
+	let output_directory = TempDirectory::new("sdf");
+	let fixtures = fixture_directory();
+	let output = run_cli(&[
+		"build",
+		fixtures.to_str().unwrap(),
+		"-o",
+		output_directory.path().to_str().unwrap(),
+		"--fast",
+		"--sdf",
+	]);
+	assert_success(&output);
+
+	for name in ["sprite.json", "sprite@2x.json"] {
+		let json = fs::read_to_string(output_directory.path().join(name)).unwrap();
+		let entries = json.matches("\"pixelRatio\"").count();
+		assert!(entries > 0);
+		assert_eq!(json.matches("\"sdf\": true").count(), entries, "{name}");
+	}
+}

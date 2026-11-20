@@ -1,10 +1,12 @@
 //! Golden files can be regenerated after an intentional format change with:
 //! `cargo test -p spritore-core --test golden -- --ignored regen_golden`
+//! (SDF golden files: `-- --ignored regen_sdf_golden`)
 
 use std::path::{Path, PathBuf};
 
 use spritore_core::{
-	BuildOptions, RenderedIcon, SpriteSheet, build_sprite_sheet, index_to_json, render_icon,
+	BuildOptions, RenderOptions, RenderedIcon, SpriteSheet, build_sprite_sheet, index_to_json,
+	render_icon, render_icon_with_options,
 };
 
 const FIXTURES: &[(&str, &str)] = &[
@@ -28,6 +30,21 @@ fn render_fixtures(pixel_ratio: u8, order: &[usize]) -> Vec<RenderedIcon> {
 
 fn build_both(pixel_ratio: u8) -> (SpriteSheet, SpriteSheet) {
 	let icons = render_fixtures(pixel_ratio, &[0, 1, 2, 3, 4, 5]);
+	let fast = build_sprite_sheet(&icons, pixel_ratio, BuildOptions { fast: true }).unwrap();
+	let zopfli = build_sprite_sheet(&icons, pixel_ratio, BuildOptions { fast: false }).unwrap();
+	(fast, zopfli)
+}
+
+/// SDF と通常のアイコンを混ぜた sheet (pin / line が SDF)
+fn build_sdf_both(pixel_ratio: u8) -> (SpriteSheet, SpriteSheet) {
+	let icons: Vec<RenderedIcon> = [0, 1, 2, 3]
+		.iter()
+		.map(|&index| {
+			let (id, svg) = FIXTURES[index];
+			let sdf = id == "pin" || id == "line";
+			render_icon_with_options(id, svg, pixel_ratio, RenderOptions { sdf }).unwrap()
+		})
+		.collect();
 	let fast = build_sprite_sheet(&icons, pixel_ratio, BuildOptions { fast: true }).unwrap();
 	let zopfli = build_sprite_sheet(&icons, pixel_ratio, BuildOptions { fast: false }).unwrap();
 	(fast, zopfli)
@@ -59,6 +76,24 @@ fn generated_assets_match_golden_bytes() {
 		assert_golden(&format!("sprite{suffix}.png"), &zopfli.png);
 		assert_golden(
 			&format!("sprite{suffix}.json"),
+			index_to_json(&fast.index).as_bytes(),
+		);
+	}
+}
+
+#[test]
+fn sdf_assets_match_golden_bytes() {
+	for pixel_ratio in [1, 2] {
+		let (fast, zopfli) = build_sdf_both(pixel_ratio);
+		assert_eq!(fast.index, zopfli.index);
+		assert!(fast.index["pin"].sdf && fast.index["line"].sdf);
+		assert!(!fast.index["dot"].sdf && !fast.index["grad"].sdf);
+
+		let suffix = if pixel_ratio == 1 { "" } else { "@2x" };
+		assert_golden(&format!("sdf{suffix}.fast.png"), &fast.png);
+		assert_golden(&format!("sdf{suffix}.png"), &zopfli.png);
+		assert_golden(
+			&format!("sdf{suffix}.json"),
 			index_to_json(&fast.index).as_bytes(),
 		);
 	}
@@ -98,6 +133,24 @@ fn regen_golden() {
 		std::fs::write(directory.join(format!("sprite{suffix}.png")), zopfli.png).unwrap();
 		std::fs::write(
 			directory.join(format!("sprite{suffix}.json")),
+			index_to_json(&fast.index),
+		)
+		.unwrap();
+	}
+}
+
+#[test]
+#[ignore = "overwrites committed golden files intentionally"]
+fn regen_sdf_golden() {
+	let directory = golden_dir();
+	std::fs::create_dir_all(&directory).unwrap();
+	for pixel_ratio in [1, 2] {
+		let (fast, zopfli) = build_sdf_both(pixel_ratio);
+		let suffix = if pixel_ratio == 1 { "" } else { "@2x" };
+		std::fs::write(directory.join(format!("sdf{suffix}.fast.png")), fast.png).unwrap();
+		std::fs::write(directory.join(format!("sdf{suffix}.png")), zopfli.png).unwrap();
+		std::fs::write(
+			directory.join(format!("sdf{suffix}.json")),
 			index_to_json(&fast.index),
 		)
 		.unwrap();

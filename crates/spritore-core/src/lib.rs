@@ -10,6 +10,7 @@
 
 mod png;
 mod potpack;
+mod sdf;
 
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
@@ -48,7 +49,23 @@ pub struct RenderedIcon {
 	/// The pixel height after applying the requested pixel ratio.
 	pub height: u32,
 	/// Straight (non-premultiplied) RGBA pixels in row-major order.
+	///
+	/// For SDF icons, RGB is zero and alpha holds the distance field.
 	pub pixels: Vec<u8>,
+	/// `true` when `pixels` hold a signed distance field for a MapLibre SDF icon.
+	pub sdf: bool,
+}
+
+/// Options for rendering one icon.
+#[derive(Clone, Copy, Default, Debug)]
+pub struct RenderOptions {
+	/// Converts the icon to a signed distance field for MapLibre `sdf` icons.
+	///
+	/// Only the icon's alpha is kept, so MapLibre can tint it with `icon-color`
+	/// and draw `icon-halo-*`. The image gains 3 logical pixels of transparent
+	/// padding on every side (scaled by the pixel ratio), and the distance is
+	/// encoded with a radius of 8 logical pixels and a cutoff of 0.25.
+	pub sdf: bool,
 }
 
 /// Rasterizes one SVG icon at the requested pixel ratio.
@@ -56,6 +73,19 @@ pub struct RenderedIcon {
 /// This is also suitable for producing individual images for MapLibre's
 /// `map.addImage` API.
 pub fn render_icon(id: &str, svg: &str, pixel_ratio: u8) -> Result<RenderedIcon, Error> {
+	render_icon_with_options(id, svg, pixel_ratio, RenderOptions::default())
+}
+
+/// Rasterizes one SVG icon at the requested pixel ratio with [`RenderOptions`].
+///
+/// With `sdf` set, the result is a signed distance field that should be added
+/// to MapLibre with `sdf: true`.
+pub fn render_icon_with_options(
+	id: &str,
+	svg: &str,
+	pixel_ratio: u8,
+	render_options: RenderOptions,
+) -> Result<RenderedIcon, Error> {
 	let options = resvg::usvg::Options::default();
 	let tree = resvg::usvg::Tree::from_str(svg, &options).map_err(|error| Error::InvalidSvg {
 		id: id.to_owned(),
@@ -89,11 +119,23 @@ pub fn render_icon(id: &str, svg: &str, pixel_ratio: u8) -> Result<RenderedIcon,
 		]);
 	}
 
+	if render_options.sdf {
+		let (width, height, pixels) = sdf::alpha_to_sdf(width, height, &pixels, pixel_ratio);
+		return Ok(RenderedIcon {
+			id: id.to_owned(),
+			width,
+			height,
+			pixels,
+			sdf: true,
+		});
+	}
+
 	Ok(RenderedIcon {
 		id: id.to_owned(),
 		width,
 		height,
 		pixels,
+		sdf: false,
 	})
 }
 
@@ -110,6 +152,8 @@ pub struct SpriteIndexEntry {
 	pub height: u32,
 	/// The pixel ratio represented by this sheet.
 	pub pixel_ratio: u8,
+	/// Marks the entry as a MapLibre SDF icon.
+	pub sdf: bool,
 }
 
 /// A PNG sprite sheet and its MapLibre index.
@@ -140,6 +184,7 @@ fn deduplicate<'a>(icons: &[&'a RenderedIcon]) -> Deduplicated<'a> {
 		let representative = representatives.iter().position(|candidate| {
 			candidate.width == icon.width
 				&& candidate.height == icon.height
+				&& candidate.sdf == icon.sdf
 				&& candidate.pixels == icon.pixels
 		});
 		let representative = representative.unwrap_or_else(|| {
@@ -224,6 +269,7 @@ pub fn build_sprite_sheet(
 				width: icon.width,
 				height: icon.height,
 				pixel_ratio,
+				sdf: icon.sdf,
 			},
 		);
 	}
@@ -235,7 +281,8 @@ pub fn build_sprite_sheet(
 /// Serializes a MapLibre sprite index as pretty JSON.
 ///
 /// The result uses two-space indentation, the MapLibre field names `x`, `y`,
-/// `width`, `height`, and `pixelRatio`, and a trailing newline.
+/// `width`, `height`, and `pixelRatio`, and a trailing newline. SDF entries
+/// also get `"sdf": true` after `pixelRatio`.
 pub fn index_to_json(index: &BTreeMap<String, SpriteIndexEntry>) -> String {
 	if index.is_empty() {
 		return "{}\n".to_owned();
@@ -251,8 +298,14 @@ pub fn index_to_json(index: &BTreeMap<String, SpriteIndexEntry>) -> String {
 		writeln!(json, "    \"width\": {},", entry.width).expect("writing to a String cannot fail");
 		writeln!(json, "    \"height\": {},", entry.height)
 			.expect("writing to a String cannot fail");
-		writeln!(json, "    \"pixelRatio\": {}", entry.pixel_ratio)
-			.expect("writing to a String cannot fail");
+		if entry.sdf {
+			writeln!(json, "    \"pixelRatio\": {},", entry.pixel_ratio)
+				.expect("writing to a String cannot fail");
+			json.push_str("    \"sdf\": true\n");
+		} else {
+			writeln!(json, "    \"pixelRatio\": {}", entry.pixel_ratio)
+				.expect("writing to a String cannot fail");
+		}
 		json.push_str("  }");
 		if entry_number + 1 != index.len() {
 			json.push(',');
@@ -294,6 +347,7 @@ mod tests {
 			width,
 			height,
 			pixels,
+			sdf: false,
 		}
 	}
 
@@ -312,6 +366,31 @@ mod tests {
 		assert_eq!(sheet.index["a-original"], sheet.index["z-copy"]);
 		assert_eq!(u32::from_be_bytes(sheet.png[16..20].try_into().unwrap()), 3);
 		assert_eq!(u32::from_be_bytes(sheet.png[20..24].try_into().unwrap()), 3);
+	}
+
+	#[test]
+	fn does_not_merge_sdf_and_plain_icons_with_identical_pixels() {
+		let mut sdf_icon = icon("b-sdf", 1, 1, vec![0, 0, 0, 255]);
+		sdf_icon.sdf = true;
+		let icons = vec![icon("a-plain", 1, 1, vec![0, 0, 0, 255]), sdf_icon];
+		let sheet = build_sprite_sheet(&icons, 1, BuildOptions { fast: true }).unwrap();
+		assert_ne!(
+			(sheet.index["a-plain"].x, sheet.index["a-plain"].y),
+			(sheet.index["b-sdf"].x, sheet.index["b-sdf"].y)
+		);
+		assert!(!sheet.index["a-plain"].sdf);
+		assert!(sheet.index["b-sdf"].sdf);
+	}
+
+	#[test]
+	fn renders_sdf_icons_with_padding() {
+		let svg = r#"<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><rect width="10" height="10"/></svg>"#;
+		let plain = render_icon("square", svg, 2).unwrap();
+		let sdf = render_icon_with_options("square", svg, 2, RenderOptions { sdf: true }).unwrap();
+		assert!(!plain.sdf);
+		assert!(sdf.sdf);
+		assert_eq!((plain.width, plain.height), (20, 20));
+		assert_eq!((sdf.width, sdf.height), (32, 32));
 	}
 
 	#[test]
@@ -361,6 +440,7 @@ mod tests {
 					width: 3,
 					height: 4,
 					pixel_ratio: 2,
+					sdf: false,
 				},
 			),
 			(
@@ -371,6 +451,7 @@ mod tests {
 					width: 7,
 					height: 8,
 					pixel_ratio: 2,
+					sdf: true,
 				},
 			),
 		]);
@@ -390,7 +471,8 @@ mod tests {
 				"    \"y\": 6,\n",
 				"    \"width\": 7,\n",
 				"    \"height\": 8,\n",
-				"    \"pixelRatio\": 2\n",
+				"    \"pixelRatio\": 2,\n",
+				"    \"sdf\": true\n",
 				"  }\n",
 				"}\n",
 			),

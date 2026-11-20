@@ -74,6 +74,49 @@ test("JavaScript API", async (context) => {
 		}
 	});
 
+	await context.test("SDF sheets match the core SDF golden bytes", async () => {
+		const sdfIds = new Set(["pin", "line"]);
+		const icons = ["dot", "pin", "grad", "line"].map((id) => ({
+			...fixture(id),
+			sdf: sdfIds.has(id),
+		}));
+		for (const pixelRatio of [1, 2]) {
+			const suffix = pixelRatio === 1 ? "" : "@2x";
+			const expectedIndex = await readFile(
+				new URL(`sdf${suffix}.json`, goldenDirectory),
+			);
+			for (const fast of [true, false]) {
+				const kind = fast ? ".fast" : "";
+				const expectedPng = await readFile(
+					new URL(`sdf${suffix}${kind}.png`, goldenDirectory),
+				);
+				const sheet = await buildSpriteSheet(
+					icons,
+					pixelRatio,
+					fast ? { fast: true } : undefined,
+				);
+				assert.equal(Buffer.compare(Buffer.from(sheet.png), expectedPng), 0);
+				assert.equal(
+					Buffer.compare(Buffer.from(sheet.indexJson, "utf8"), expectedIndex),
+					0,
+				);
+				assert.equal(sheet.index.pin?.sdf, true);
+				assert.equal(Object.hasOwn(sheet.index.dot ?? {}, "sdf"), false);
+			}
+		}
+	});
+
+	await context.test("renderIcon returns padded SDF pixels", async () => {
+		const dot = fixture("dot");
+		const plain = await renderIcon(dot.id, dot.svg, 2);
+		const sdf = await renderIcon(dot.id, dot.svg, 2, { sdf: true });
+		assert.equal(plain.sdf, false);
+		assert.equal(sdf.sdf, true);
+		assert.equal(sdf.width, plain.width + 12);
+		assert.equal(sdf.height, plain.height + 12);
+		assert.ok(Object.isFrozen(sdf));
+	});
+
 	await context.test("public results are frozen plain objects", async () => {
 		const dot = fixture("dot");
 		const rendered = await renderIcon(dot.id, dot.svg, 1);

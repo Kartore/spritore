@@ -12,6 +12,9 @@ async function nodeExample(svg: string, wasm: Buffer): Promise<void> {
 		fast: true,
 	});
 	Buffer.from(sheet.png);
+	const sdfIcon = await renderIcon("marker", svg, 1, { wasm, sdf: true });
+	const isSdf: boolean = sdfIcon.sdf;
+	void isSdf;
 }
 
 void nodeExample;

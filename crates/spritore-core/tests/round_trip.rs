@@ -8,6 +8,7 @@ fn icon(id: &str, width: u32, height: u32, pixels: Vec<u8>) -> RenderedIcon {
 		width,
 		height,
 		pixels,
+		sdf: false,
 	}
 }
 

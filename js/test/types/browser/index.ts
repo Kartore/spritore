@@ -22,6 +22,15 @@ async function browserExample(): Promise<void> {
 	void sheet.png;
 	void sheet.index[icon.id]?.width;
 
+	const sdfIcon = await renderIcon("marker", svg, 2, { sdf: true });
+	const isSdf: boolean = sdfIcon.sdf;
+	const sdfSheet = await buildSpriteSheet([{ id: "marker", svg, sdf: true }], 2);
+	const entrySdf: true | undefined = sdfSheet.index.marker?.sdf;
+	void isSdf;
+	void entrySdf;
+	// @ts-expect-error sdf is a boolean option.
+	await renderIcon("marker", svg, 2, { sdf: "yes" });
+
 	// @ts-expect-error Result properties are read-only.
 	icon.width = 1;
 	// @ts-expect-error Sprite index entries are read-only.

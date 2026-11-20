@@ -50,6 +50,28 @@ test("Node CLI", async (context) => {
 		await assertGoldenOutput(fastOutput, true);
 	});
 
+	await context.test("--sdf marks every icon as SDF", async () => {
+		const output = join(temporaryRoot, "sdf");
+		const result = runCli([
+			"build",
+			fixtureDirectory,
+			"-o",
+			output,
+			"--fast",
+			"--sdf",
+		]);
+		assert.equal(result.status, 0, result.stderr);
+		for (const name of ["sprite.json", "sprite@2x.json"]) {
+			const index = JSON.parse(await readFile(join(output, name), "utf8")) as Record<
+				string,
+				{ sdf?: boolean }
+			>;
+			const entries = Object.values(index);
+			assert.ok(entries.length > 0);
+			assert.ok(entries.every((entry) => entry.sdf === true), name);
+		}
+	});
+
 	await context.test("invalid SVGs fail without partial output and can be skipped", async () => {
 		const input = join(temporaryRoot, "invalid-input");
 		await mkdir(input);

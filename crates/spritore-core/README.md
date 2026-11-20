@@ -55,6 +55,10 @@ mode prioritizes a smaller PNG for final assets.
 ## API overview
 
 - `render_icon` turns one SVG string into a `RenderedIcon`.
+- `render_icon_with_options` does the same with `RenderOptions`; set `sdf` to
+  produce a MapLibre SDF icon (alpha-only distance field with 3 logical pixels
+  of padding, radius 8, cutoff 0.25, all scaled by the pixel ratio). Its index
+  entry gets `"sdf": true`.
 - `build_sprite_sheet` combines rendered icons into a `SpriteSheet`.
 - `index_to_json` converts the returned index into ready-to-write MapLibre JSON.
 

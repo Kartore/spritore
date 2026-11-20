@@ -15,7 +15,7 @@ import {
 
 const USAGE =
 	"Usage: spritore build <svg-dir> -o <out-dir> " +
-	"[--name sprite] [--ratio 1,2] [--fast] [--skip-invalid]";
+	"[--name sprite] [--ratio 1,2] [--fast] [--sdf] [--skip-invalid]";
 
 class UsageError extends Error {}
 
@@ -69,7 +69,8 @@ async function main(): Promise<void> {
 		sources,
 		values["skip-invalid"] === true,
 	);
-	const icons = validSources.map(({ id, svg }) => ({ id, svg }));
+	const sdf = values.sdf === true;
+	const icons = validSources.map(({ id, svg }) => ({ id, svg, sdf }));
 	const outputs: Output[] = [];
 	for (const ratio of ratios) {
 		const sheet = await buildSpriteSheet(
@@ -104,6 +105,7 @@ function parseArguments() {
 		name: { type: "string" },
 		ratio: { type: "string" },
 		fast: { type: "boolean" },
+		sdf: { type: "boolean" },
 		"skip-invalid": { type: "boolean" },
 		help: { type: "boolean", short: "h" },
 	} satisfies ParseArgsOptionsConfig;

@@ -73,12 +73,13 @@ public/sprites/
 The complete command is:
 
 ```text
-spritore build <svg-dir> -o <out-dir> [--name sprite] [--ratio 1,2] [--fast] [--skip-invalid]
+spritore build <svg-dir> -o <out-dir> [--name sprite] [--ratio 1,2] [--fast] [--sdf] [--skip-invalid]
 ```
 
 - `--name <name>` changes the output basename.
 - `--ratio <ratios>` accepts comma-separated integers from 1 to 255.
 - `--fast` prioritizes generation speed over PNG file size.
+- `--sdf` renders every icon as a MapLibre SDF icon (see [SDF icons](#sdf-icons)).
 - `--skip-invalid` reports SVG parse errors and continues with valid icons.
 
 Without `--skip-invalid`, an invalid SVG stops the command before output files
@@ -173,6 +174,31 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 See the [`spritore` crate README](crates/spritore-cli/README.md) for Cargo
 features and the [`spritore-core` README](crates/spritore-core/README.md) for
 the lower-level API.
+
+## SDF icons
+
+MapLibre can tint single-colour icons with `icon-color` and draw
+`icon-halo-*` around them when the sprite marks them as SDF (signed distance
+field) icons. spritore renders an icon as an SDF when asked:
+
+- the image keeps only the icon's alpha (RGB is zero), so original colours are lost;
+- 3 logical pixels of transparent padding are added on every side (6 pixels at
+  pixel ratio 2), so halos up to 3 pixels wide fit. The padding makes the image
+  larger, so anchors such as `icon-anchor: bottom` move by that amount;
+- distances use a radius of 8 logical pixels and a cutoff of 0.25, matching
+  MapLibre's SDF shader;
+- the sprite index entry gets `"sdf": true`.
+
+In JavaScript, pass `sdf` per icon or per render:
+
+```ts
+await buildSpriteSheet([{ id: "pin", svg, sdf: true }], 2);
+const pin = await renderIcon("pin", svg, 2, { sdf: true });
+map.addImage("pin", pin, { pixelRatio: 2, sdf: pin.sdf });
+```
+
+In Rust, use `render_icon_with_options(id, svg, ratio, RenderOptions { sdf: true })`.
+The CLI's `--sdf` applies to every icon.
 
 ## Build modes
 

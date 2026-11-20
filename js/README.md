@@ -42,12 +42,13 @@ public/sprites/
 Available options:
 
 ```text
-spritore build <svg-dir> -o <out-dir> [--name sprite] [--ratio 1,2] [--fast] [--skip-invalid]
+spritore build <svg-dir> -o <out-dir> [--name sprite] [--ratio 1,2] [--fast] [--sdf] [--skip-invalid]
 ```
 
 - `--name <name>` changes the output basename.
 - `--ratio <ratios>` accepts comma-separated integers from 1 to 255.
 - `--fast` prioritizes generation speed over PNG file size.
+- `--sdf` renders every icon as a MapLibre SDF icon (see [SDF icons](#sdf-icons)).
 - `--skip-invalid` reports SVG parse errors and continues with valid icons.
 
 Without `--skip-invalid`, an invalid SVG stops the command before output files
@@ -126,17 +127,22 @@ type RenderedIcon = {
 	readonly width: number;
 	readonly height: number;
 	readonly pixels: Uint8Array;
+	/** true when pixels hold a signed distance field */
+	readonly sdf: boolean;
 };
 
 type RenderIconOptions = {
+	/** Render a MapLibre SDF icon. Defaults to false. */
+	readonly sdf?: boolean;
 	readonly wasm?: string | URL | ArrayBuffer | Uint8Array |
 		Promise<string | URL | ArrayBuffer | Uint8Array>;
 };
 ```
 
 Use the returned `width`, `height`, and `pixels` as MapLibre's
-`map.addImage` image data. A pixel ratio of `1` or `2` covers typical
-standard- and high-density previews.
+`map.addImage` image data, and pass `sdf` through to its options
+(`map.addImage(id, icon, { pixelRatio, sdf: icon.sdf })`). A pixel ratio of
+`1` or `2` covers typical standard- and high-density previews.
 
 ### `buildSpriteSheet(icons, pixelRatio, options?)`
 
@@ -152,6 +158,8 @@ type SpriteSheet = {
 		readonly width: number;
 		readonly height: number;
 		readonly pixelRatio: number;
+		/** present only for SDF icons */
+		readonly sdf?: true;
 	}>>;
 	readonly indexJson: string;
 };
@@ -163,8 +171,22 @@ type BuildOptions = {
 };
 ```
 
-Each input item has an `id` used as its index key and an `svg` string. Duplicate
-IDs, empty icon arrays, invalid SVG, and zero-sized icons are errors.
+Each input item has an `id` used as its index key, an `svg` string, and an
+optional `sdf` flag. Duplicate IDs, empty icon arrays, invalid SVG, and zero-sized icons are errors.
+
+## SDF icons
+
+MapLibre can tint single-colour icons with `icon-color` and draw
+`icon-halo-*` around them when the sprite marks them as SDF (signed distance
+field) icons. spritore renders an icon as an SDF when asked:
+
+- the image keeps only the icon's alpha (RGB is zero), so original colours are lost;
+- 3 logical pixels of transparent padding are added on every side (6 pixels at
+  pixel ratio 2), so halos up to 3 pixels wide fit. The padding makes the image
+  larger, so anchors such as `icon-anchor: bottom` move by that amount;
+- distances use a radius of 8 logical pixels and a cutoff of 0.25, matching
+  MapLibre's SDF shader;
+- the sprite index entry gets `"sdf": true`.
 
 ## Build modes
 

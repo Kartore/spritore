@@ -10,13 +10,15 @@
 
 use js_sys::{JSON, Object, Reflect, Uint8Array};
 use serde::Deserialize;
-use spritore_core::{BuildOptions, RenderedIcon};
+use spritore_core::{BuildOptions, RenderOptions, RenderedIcon};
 use wasm_bindgen::prelude::*;
 
 #[derive(Deserialize)]
 struct IconSource {
 	id: String,
 	svg: String,
+	#[serde(default)]
+	sdf: bool,
 }
 
 #[derive(Default, Deserialize)]
@@ -25,20 +27,40 @@ struct BuildOptionsInput {
 	fast: bool,
 }
 
+#[derive(Default, Deserialize)]
+#[serde(default)]
+struct RenderOptionsInput {
+	sdf: bool,
+}
+
 /// Rasterizes one SVG icon and returns its dimensions and straight-alpha RGBA
 /// pixels.
 ///
-/// The returned object has `id`, `width`, `height`, and `pixels` properties and
-/// can be used as MapLibre `map.addImage` image data.
+/// The returned object has `id`, `width`, `height`, `pixels`, and `sdf`
+/// properties and can be used as MapLibre `map.addImage` image data. Pass
+/// `{ sdf: true }` as `options` to render a signed distance field.
 #[wasm_bindgen(js_name = renderIcon)]
-pub fn render_icon(id: &str, svg: &str, pixel_ratio: u8) -> Result<JsValue, JsError> {
-	let icon = spritore_core::render_icon(id, svg, pixel_ratio).map_err(core_error)?;
+pub fn render_icon(
+	id: &str,
+	svg: &str,
+	pixel_ratio: u8,
+	options: Option<JsValue>,
+) -> Result<JsValue, JsError> {
+	let options: RenderOptionsInput = deserialize_options(options, "render")?;
+	let icon = spritore_core::render_icon_with_options(
+		id,
+		svg,
+		pixel_ratio,
+		RenderOptions { sdf: options.sdf },
+	)
+	.map_err(core_error)?;
 	rendered_icon_to_js(&icon)
 }
 
 /// Builds a PNG sprite sheet and MapLibre index from SVG icon sources.
 ///
-/// `icons` is an array of objects with `id` and `svg` properties. The returned
+/// `icons` is an array of objects with `id`, `svg`, and optional `sdf`
+/// properties. The returned
 /// object contains `png`, `index`, and ready-to-write `indexJson` properties.
 /// Set the `fast` build option when generation speed matters more than PNG file
 /// size.
@@ -50,10 +72,17 @@ pub fn build_sprite_sheet(
 ) -> Result<JsValue, JsError> {
 	let sources: Vec<IconSource> = serde_wasm_bindgen::from_value(icons)
 		.map_err(|error| JsError::new(&format!("invalid icons: {error}")))?;
-	let options = deserialize_options(options)?;
+	let options: BuildOptionsInput = deserialize_options(options, "build")?;
 	let rendered = sources
 		.iter()
-		.map(|source| spritore_core::render_icon(&source.id, &source.svg, pixel_ratio))
+		.map(|source| {
+			spritore_core::render_icon_with_options(
+				&source.id,
+				&source.svg,
+				pixel_ratio,
+				RenderOptions { sdf: source.sdf },
+			)
+		})
 		.collect::<Result<Vec<_>, _>>()
 		.map_err(core_error)?;
 	let sheet = spritore_core::build_sprite_sheet(
@@ -77,12 +106,15 @@ pub fn build_sprite_sheet(
 	Ok(result.into())
 }
 
-fn deserialize_options(options: Option<JsValue>) -> Result<BuildOptionsInput, JsError> {
+fn deserialize_options<T: Default + serde::de::DeserializeOwned>(
+	options: Option<JsValue>,
+	kind: &str,
+) -> Result<T, JsError> {
 	match options {
-		None => Ok(BuildOptionsInput::default()),
-		Some(value) if value.is_null() || value.is_undefined() => Ok(BuildOptionsInput::default()),
+		None => Ok(T::default()),
+		Some(value) if value.is_null() || value.is_undefined() => Ok(T::default()),
 		Some(value) => serde_wasm_bindgen::from_value(value)
-			.map_err(|error| JsError::new(&format!("invalid build options: {error}"))),
+			.map_err(|error| JsError::new(&format!("invalid {kind} options: {error}"))),
 	}
 }
 
@@ -100,6 +132,7 @@ fn rendered_icon_to_js(icon: &RenderedIcon) -> Result<JsValue, JsError> {
 		"pixels",
 		Uint8Array::from(icon.pixels.as_slice()).as_ref(),
 	)?;
+	set_property(&result, "sdf", &JsValue::from_bool(icon.sdf))?;
 	Ok(result.into())
 }
 

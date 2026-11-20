@@ -16,6 +16,7 @@ interface WasmRenderedIcon {
 	width: number;
 	height: number;
 	pixels: Uint8Array;
+	sdf: boolean;
 }
 
 interface WasmSpriteSheet {
@@ -30,15 +31,23 @@ export async function renderIconWithWasm(
 	id: string,
 	svg: string,
 	pixelRatio: number,
+	sdf: boolean | undefined,
 	wasmInput: () => WasmInput,
 ): Promise<RenderedIcon> {
 	await initializeWasm(wasmInput);
-	const rendered = renderIconWasm(id, svg, pixelRatio) as WasmRenderedIcon;
+	const wasmOptions = sdf === undefined ? undefined : { sdf };
+	const rendered = renderIconWasm(
+		id,
+		svg,
+		pixelRatio,
+		wasmOptions,
+	) as WasmRenderedIcon;
 	return Object.freeze({
 		id: rendered.id,
 		width: rendered.width,
 		height: rendered.height,
 		pixels: rendered.pixels,
+		sdf: rendered.sdf,
 	});
 }
 

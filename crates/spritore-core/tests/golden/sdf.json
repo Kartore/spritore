@@ -1,0 +1,32 @@
+{
+  "dot": {
+    "x": 24,
+    "y": 26,
+    "width": 15,
+    "height": 15,
+    "pixelRatio": 1
+  },
+  "grad": {
+    "x": 1,
+    "y": 49,
+    "width": 20,
+    "height": 14,
+    "pixelRatio": 1
+  },
+  "line": {
+    "x": 1,
+    "y": 1,
+    "width": 23,
+    "height": 23,
+    "pixelRatio": 1,
+    "sdf": true
+  },
+  "pin": {
+    "x": 1,
+    "y": 26,
+    "width": 21,
+    "height": 21,
+    "pixelRatio": 1,
+    "sdf": true
+  }
+}

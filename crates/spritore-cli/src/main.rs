@@ -7,7 +7,10 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use clap::{Args, Parser, Subcommand};
-use spritore::{BuildOptions, Error, build_sprite_sheet, index_to_json, render_icon};
+use spritore::{
+	BuildOptions, Error, RenderOptions, build_sprite_sheet, index_to_json, render_icon,
+	render_icon_with_options,
+};
 
 const USAGE: &str = concat!(
 	"Usage: spritore build <svg-dir> -o <out-dir> ",
@@ -47,6 +50,9 @@ struct BuildArgs {
 	/// Skips SVG parse errors instead of failing the build.
 	#[arg(long)]
 	skip_invalid: bool,
+	/// Renders every icon as a MapLibre SDF icon.
+	#[arg(long)]
+	sdf: bool,
 }
 
 struct CliFailure {
@@ -138,7 +144,14 @@ fn build(arguments: BuildArgs) -> Result<(), CliFailure> {
 	for ratio in ratios {
 		let rendered = sources
 			.iter()
-			.map(|source| render_icon(&source.id, &source.svg, ratio))
+			.map(|source| {
+				render_icon_with_options(
+					&source.id,
+					&source.svg,
+					ratio,
+					RenderOptions { sdf: arguments.sdf },
+				)
+			})
 			.collect::<Result<Vec<_>, _>>()
 			.map_err(|error| CliFailure::runtime(error.to_string()))?;
 		let sheet = build_sprite_sheet(

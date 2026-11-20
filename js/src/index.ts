@@ -27,7 +27,8 @@ const bundledWasm = new URL(
 );
 
 /**
- * Rasterizes one SVG into straight-alpha RGBA pixels for MapLibre.
+ * Rasterizes one SVG into straight-alpha RGBA pixels for MapLibre. Pass
+ * `{ sdf: true }` to render a signed distance field for a MapLibre SDF icon.
  *
  * The bundled WebAssembly module is initialized automatically on the first
  * API call. The returned plain object is frozen and owns its pixel data.
@@ -41,11 +42,12 @@ export function renderIcon(
 	pixelRatio: number,
 	options: RenderIconOptions = {},
 ): Promise<RenderedIcon> {
-	const wasm = options.wasm;
+	const { sdf, wasm } = options;
 	return renderIconWithWasm(
 		id,
 		svg,
 		pixelRatio,
+		sdf,
 		() => wasm ?? bundledWasm,
 	);
 }
