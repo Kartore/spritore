@@ -8,9 +8,12 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
+mod metadata;
 mod png;
 mod potpack;
 mod sdf;
+
+pub use metadata::{ImageMetadata, TextFit};
 
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
@@ -38,6 +41,14 @@ pub enum Error {
 		/// The caller-provided icon identifier.
 		id: String,
 	},
+	/// An icon's stretch, content, or text-fit metadata did not fit its image.
+	#[error("invalid metadata for icon `{id}`: {reason}")]
+	InvalidMetadata {
+		/// The caller-provided icon identifier.
+		id: String,
+		/// What is wrong with the metadata.
+		reason: String,
+	},
 }
 
 /// A rasterized icon with straight-alpha RGBA pixels.
@@ -54,10 +65,12 @@ pub struct RenderedIcon {
 	pub pixels: Vec<u8>,
 	/// `true` when `pixels` hold a signed distance field for a MapLibre SDF icon.
 	pub sdf: bool,
+	/// Stretch, content, and text-fit metadata in image pixels (empty when unset).
+	pub metadata: ImageMetadata,
 }
 
 /// Options for rendering one icon.
-#[derive(Clone, Copy, Default, Debug)]
+#[derive(Clone, Default, Debug)]
 pub struct RenderOptions {
 	/// Converts the icon to a signed distance field for MapLibre `sdf` icons.
 	///
@@ -66,6 +79,12 @@ pub struct RenderOptions {
 	/// padding on every side (scaled by the pixel ratio), and the distance is
 	/// encoded with a radius of 8 logical pixels and a cutoff of 0.25.
 	pub sdf: bool,
+	/// MapLibre `icon-text-fit` metadata in logical pixels of the SVG.
+	///
+	/// The rendered icon and its sprite index entry carry it in image pixels:
+	/// multiplied by the pixel ratio and, for SDF icons, shifted by the padding.
+	/// Values outside the image are an [`Error::InvalidMetadata`].
+	pub metadata: ImageMetadata,
 }
 
 /// Rasterizes one SVG icon at the requested pixel ratio.
@@ -119,28 +138,32 @@ pub fn render_icon_with_options(
 		]);
 	}
 
-	if render_options.sdf {
+	let (width, height, pixels, offset) = if render_options.sdf {
 		let (width, height, pixels) = sdf::alpha_to_sdf(width, height, &pixels, pixel_ratio);
-		return Ok(RenderedIcon {
+		(width, height, pixels, f64::from(sdf::SDF_BUFFER))
+	} else {
+		(width, height, pixels, 0.0)
+	};
+	let metadata = render_options.metadata.to_image_pixels(pixel_ratio, offset);
+	metadata
+		.validate(width, height)
+		.map_err(|reason| Error::InvalidMetadata {
 			id: id.to_owned(),
-			width,
-			height,
-			pixels,
-			sdf: true,
-		});
-	}
+			reason,
+		})?;
 
 	Ok(RenderedIcon {
 		id: id.to_owned(),
 		width,
 		height,
 		pixels,
-		sdf: false,
+		sdf: render_options.sdf,
+		metadata,
 	})
 }
 
 /// A MapLibre sprite index entry.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, PartialEq, Debug)]
 pub struct SpriteIndexEntry {
 	/// The icon's left coordinate in the sprite sheet.
 	pub x: u32,
@@ -154,6 +177,8 @@ pub struct SpriteIndexEntry {
 	pub pixel_ratio: u8,
 	/// Marks the entry as a MapLibre SDF icon.
 	pub sdf: bool,
+	/// Stretch, content, and text-fit metadata in image pixels (empty when unset).
+	pub metadata: ImageMetadata,
 }
 
 /// A PNG sprite sheet and its MapLibre index.
@@ -270,6 +295,7 @@ pub fn build_sprite_sheet(
 				height: icon.height,
 				pixel_ratio,
 				sdf: icon.sdf,
+				metadata: icon.metadata.clone(),
 			},
 		);
 	}
@@ -282,7 +308,8 @@ pub fn build_sprite_sheet(
 ///
 /// The result uses two-space indentation, the MapLibre field names `x`, `y`,
 /// `width`, `height`, and `pixelRatio`, and a trailing newline. SDF entries
-/// also get `"sdf": true` after `pixelRatio`.
+/// also get `"sdf": true` after `pixelRatio`, followed by any `stretchX`,
+/// `stretchY`, `content`, `textFitWidth`, and `textFitHeight` metadata.
 pub fn index_to_json(index: &BTreeMap<String, SpriteIndexEntry>) -> String {
 	if index.is_empty() {
 		return "{}\n".to_owned();
@@ -293,18 +320,24 @@ pub fn index_to_json(index: &BTreeMap<String, SpriteIndexEntry>) -> String {
 		json.push_str("  ");
 		push_json_string(&mut json, id);
 		json.push_str(": {\n");
-		writeln!(json, "    \"x\": {},", entry.x).expect("writing to a String cannot fail");
-		writeln!(json, "    \"y\": {},", entry.y).expect("writing to a String cannot fail");
-		writeln!(json, "    \"width\": {},", entry.width).expect("writing to a String cannot fail");
-		writeln!(json, "    \"height\": {},", entry.height)
-			.expect("writing to a String cannot fail");
+		let mut fields = vec![
+			format!("\"x\": {}", entry.x),
+			format!("\"y\": {}", entry.y),
+			format!("\"width\": {}", entry.width),
+			format!("\"height\": {}", entry.height),
+			format!("\"pixelRatio\": {}", entry.pixel_ratio),
+		];
 		if entry.sdf {
-			writeln!(json, "    \"pixelRatio\": {},", entry.pixel_ratio)
-				.expect("writing to a String cannot fail");
-			json.push_str("    \"sdf\": true\n");
-		} else {
-			writeln!(json, "    \"pixelRatio\": {}", entry.pixel_ratio)
-				.expect("writing to a String cannot fail");
+			fields.push("\"sdf\": true".to_owned());
+		}
+		fields.extend(entry.metadata.json_fields());
+		for (field_number, field) in fields.iter().enumerate() {
+			json.push_str("    ");
+			json.push_str(field);
+			if field_number + 1 != fields.len() {
+				json.push(',');
+			}
+			json.push('\n');
 		}
 		json.push_str("  }");
 		if entry_number + 1 != index.len() {
@@ -348,6 +381,7 @@ mod tests {
 			height,
 			pixels,
 			sdf: false,
+			metadata: ImageMetadata::default(),
 		}
 	}
 
@@ -386,11 +420,80 @@ mod tests {
 	fn renders_sdf_icons_with_padding() {
 		let svg = r#"<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><rect width="10" height="10"/></svg>"#;
 		let plain = render_icon("square", svg, 2).unwrap();
-		let sdf = render_icon_with_options("square", svg, 2, RenderOptions { sdf: true }).unwrap();
+		let sdf = render_icon_with_options(
+			"square",
+			svg,
+			2,
+			RenderOptions {
+				sdf: true,
+				..RenderOptions::default()
+			},
+		)
+		.unwrap();
 		assert!(!plain.sdf);
 		assert!(sdf.sdf);
 		assert_eq!((plain.width, plain.height), (20, 20));
 		assert_eq!((sdf.width, sdf.height), (32, 32));
+	}
+
+	#[test]
+	fn renders_metadata_in_image_pixels() {
+		let svg = r#"<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><rect width="10" height="10"/></svg>"#;
+		let metadata = ImageMetadata {
+			stretch_x: vec![[2.0, 8.0]],
+			stretch_y: vec![[3.0, 7.0]],
+			content: Some([2.0, 2.0, 8.0, 8.0]),
+			text_fit_width: Some(TextFit::StretchOnly),
+			text_fit_height: None,
+		};
+		let plain = render_icon_with_options(
+			"box",
+			svg,
+			2,
+			RenderOptions {
+				sdf: false,
+				metadata: metadata.clone(),
+			},
+		)
+		.unwrap();
+		assert_eq!(plain.metadata.stretch_x, vec![[4.0, 16.0]]);
+		assert_eq!(plain.metadata.content, Some([4.0, 4.0, 16.0, 16.0]));
+
+		// SDF は 3 論理 px の余白の分ずれる
+		let sdf = render_icon_with_options(
+			"box",
+			svg,
+			2,
+			RenderOptions {
+				sdf: true,
+				metadata,
+			},
+		)
+		.unwrap();
+		assert_eq!(sdf.metadata.stretch_x, vec![[10.0, 22.0]]);
+		assert_eq!(sdf.metadata.stretch_y, vec![[12.0, 20.0]]);
+		assert_eq!(sdf.metadata.text_fit_width, Some(TextFit::StretchOnly));
+
+		let sheet = build_sprite_sheet(&[plain], 2, BuildOptions { fast: true }).unwrap();
+		assert_eq!(sheet.index["box"].metadata.stretch_y, vec![[6.0, 14.0]]);
+	}
+
+	#[test]
+	fn rejects_metadata_outside_the_image() {
+		let svg = r#"<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"/>"#;
+		let result = render_icon_with_options(
+			"box",
+			svg,
+			1,
+			RenderOptions {
+				metadata: ImageMetadata {
+					stretch_x: vec![[2.0, 12.0]],
+					..ImageMetadata::default()
+				},
+				..RenderOptions::default()
+			},
+		);
+		assert!(matches!(result, Err(Error::InvalidMetadata { id, .. }) if id == "box"));
 	}
 
 	#[test]
@@ -441,6 +544,7 @@ mod tests {
 					height: 4,
 					pixel_ratio: 2,
 					sdf: false,
+					metadata: ImageMetadata::default(),
 				},
 			),
 			(
@@ -452,6 +556,12 @@ mod tests {
 					height: 8,
 					pixel_ratio: 2,
 					sdf: true,
+					metadata: ImageMetadata {
+						stretch_x: vec![[1.0, 6.0]],
+						content: Some([1.0, 1.0, 6.0, 7.0]),
+						text_fit_width: Some(TextFit::Proportional),
+						..ImageMetadata::default()
+					},
 				},
 			),
 		]);
@@ -472,7 +582,10 @@ mod tests {
 				"    \"width\": 7,\n",
 				"    \"height\": 8,\n",
 				"    \"pixelRatio\": 2,\n",
-				"    \"sdf\": true\n",
+				"    \"sdf\": true,\n",
+				"    \"stretchX\": [[1, 6]],\n",
+				"    \"content\": [1, 1, 6, 7],\n",
+				"    \"textFitWidth\": \"proportional\"\n",
 				"  }\n",
 				"}\n",
 			),

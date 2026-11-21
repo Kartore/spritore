@@ -1,6 +1,8 @@
 use std::io::Cursor;
 
-use spritore_core::{BuildOptions, RenderedIcon, SpriteIndexEntry, build_sprite_sheet};
+use spritore_core::{
+	BuildOptions, ImageMetadata, RenderedIcon, SpriteIndexEntry, build_sprite_sheet,
+};
 
 fn icon(id: &str, width: u32, height: u32, pixels: Vec<u8>) -> RenderedIcon {
 	RenderedIcon {
@@ -9,6 +11,7 @@ fn icon(id: &str, width: u32, height: u32, pixels: Vec<u8>) -> RenderedIcon {
 		height,
 		pixels,
 		sdf: false,
+		metadata: ImageMetadata::default(),
 	}
 }
 
@@ -32,7 +35,7 @@ fn compose_expected(
 ) -> Vec<u8> {
 	let mut expected = vec![0; width as usize * height as usize * 4];
 	for icon in icons {
-		let entry = index[&icon.id];
+		let entry = &index[&icon.id];
 		for row in 0..icon.height {
 			let source_start = (row * icon.width * 4) as usize;
 			let source_end = source_start + (icon.width * 4) as usize;

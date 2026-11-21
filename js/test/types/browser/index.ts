@@ -28,6 +28,15 @@ async function browserExample(): Promise<void> {
 	const entrySdf: true | undefined = sdfSheet.index.marker?.sdf;
 	void isSdf;
 	void entrySdf;
+	const stretched = await renderIcon("marker", svg, 2, {
+		stretchX: [[2, 8]],
+		content: [1, 1, 9, 9],
+		textFitWidth: "proportional",
+	});
+	const stretchX: readonly (readonly [number, number])[] | undefined = stretched.stretchX;
+	void stretchX;
+	// @ts-expect-error textFitWidth only accepts MapLibre's values.
+	await renderIcon("marker", svg, 2, { textFitWidth: "stretch" });
 	// @ts-expect-error sdf is a boolean option.
 	await renderIcon("marker", svg, 2, { sdf: "yes" });
 

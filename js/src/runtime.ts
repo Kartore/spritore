@@ -5,18 +5,38 @@ import initWasm, {
 } from "../pkg/spritore_wasm.js";
 import type {
 	IconSource,
+	ImageMetadata,
 	RenderedIcon,
 	SpriteIndexEntry,
 	SpriteSheet,
 	WasmInput,
 } from "./types.js";
 
-interface WasmRenderedIcon {
+interface WasmRenderedIcon extends ImageMetadata {
 	id: string;
 	width: number;
 	height: number;
 	pixels: Uint8Array;
 	sdf: boolean;
+}
+
+/** wasm に渡す描画オプション (sdf とメタデータ)。undefined のキーは渡さない */
+export interface RenderOptionsInput extends ImageMetadata {
+	readonly sdf?: boolean;
+}
+
+const METADATA_KEYS = [
+	"stretchX",
+	"stretchY",
+	"content",
+	"textFitWidth",
+	"textFitHeight",
+] as const satisfies readonly (keyof ImageMetadata)[];
+
+function definedEntries<T extends object>(value: T): Partial<T> {
+	return Object.fromEntries(
+		Object.entries(value).filter(([, entry]) => entry !== undefined),
+	) as Partial<T>;
 }
 
 interface WasmSpriteSheet {
@@ -31,23 +51,37 @@ export async function renderIconWithWasm(
 	id: string,
 	svg: string,
 	pixelRatio: number,
-	sdf: boolean | undefined,
+	options: RenderOptionsInput,
 	wasmInput: () => WasmInput,
 ): Promise<RenderedIcon> {
 	await initializeWasm(wasmInput);
-	const wasmOptions = sdf === undefined ? undefined : { sdf };
+	const wasmOptions = definedEntries({
+		sdf: options.sdf,
+		stretchX: options.stretchX,
+		stretchY: options.stretchY,
+		content: options.content,
+		textFitWidth: options.textFitWidth,
+		textFitHeight: options.textFitHeight,
+	});
 	const rendered = renderIconWasm(
 		id,
 		svg,
 		pixelRatio,
-		wasmOptions,
+		Object.keys(wasmOptions).length === 0 ? undefined : wasmOptions,
 	) as WasmRenderedIcon;
+	const metadata = Object.fromEntries(
+		METADATA_KEYS.filter((key) => rendered[key] !== undefined).map((key) => [
+			key,
+			rendered[key],
+		]),
+	) as ImageMetadata;
 	return Object.freeze({
 		id: rendered.id,
 		width: rendered.width,
 		height: rendered.height,
 		pixels: rendered.pixels,
 		sdf: rendered.sdf,
+		...metadata,
 	});
 }
 

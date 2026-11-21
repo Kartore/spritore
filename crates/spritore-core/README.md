@@ -59,6 +59,11 @@ mode prioritizes a smaller PNG for final assets.
   produce a MapLibre SDF icon (alpha-only distance field with 3 logical pixels
   of padding, radius 8, cutoff 0.25, all scaled by the pixel ratio). Its index
   entry gets `"sdf": true`.
+- `RenderOptions::metadata` (`ImageMetadata`) takes `icon-text-fit` metadata —
+  `stretch_x`, `stretch_y`, `content`, `text_fit_width`, `text_fit_height` —
+  in logical pixels. Rendered icons and index entries carry it in image pixels
+  (scaled by the pixel ratio and shifted by SDF padding), and invalid values
+  are reported as `Error::InvalidMetadata`.
 - `build_sprite_sheet` combines rendered icons into a `SpriteSheet`.
 - `index_to_json` converts the returned index into ready-to-write MapLibre JSON.
 

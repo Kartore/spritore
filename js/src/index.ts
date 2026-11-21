@@ -13,10 +13,12 @@ import type {
 export type {
 	BuildOptions,
 	IconSource,
+	ImageMetadata,
 	RenderedIcon,
 	RenderIconOptions,
 	SpriteIndexEntry,
 	SpriteSheet,
+	TextFit,
 	WasmInput,
 	WasmSource,
 } from "./types.js";
@@ -42,12 +44,12 @@ export function renderIcon(
 	pixelRatio: number,
 	options: RenderIconOptions = {},
 ): Promise<RenderedIcon> {
-	const { sdf, wasm } = options;
+	const { wasm, ...renderOptions } = options;
 	return renderIconWithWasm(
 		id,
 		svg,
 		pixelRatio,
-		sdf,
+		renderOptions,
 		() => wasm ?? bundledWasm,
 	);
 }

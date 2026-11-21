@@ -106,6 +106,69 @@ test("JavaScript API", async (context) => {
 		}
 	});
 
+	await context.test("metadata sheets match the core metadata golden bytes", async () => {
+		const pin = fixture("pin");
+		const line = fixture("line");
+		const icons: IconSource[] = [
+			{
+				...pin,
+				sdf: true,
+				stretchX: [[4, 11]],
+				stretchY: [[3, 6.5]],
+			},
+			{
+				...line,
+				stretchX: [
+					[2, 5],
+					[12, 15],
+				],
+				stretchY: [[4, 13]],
+				content: [2, 2, 15, 15],
+				textFitWidth: "stretchOnly",
+				textFitHeight: "proportional",
+			},
+		];
+		for (const pixelRatio of [1, 2]) {
+			const suffix = pixelRatio === 1 ? "" : "@2x";
+			const expected = await readFile(
+				new URL(`metadata${suffix}.json`, goldenDirectory),
+			);
+			const sheet = await buildSpriteSheet(icons, pixelRatio, { fast: true });
+			assert.equal(
+				Buffer.compare(Buffer.from(sheet.indexJson, "utf8"), expected),
+				0,
+			);
+			assert.deepEqual(sheet.index, JSON.parse(sheet.indexJson));
+		}
+	});
+
+	await context.test("renderIcon returns metadata in image pixels", async () => {
+		const dot = fixture("dot");
+		const plain = await renderIcon(dot.id, dot.svg, 2, {
+			stretchX: [[2, 10]],
+			content: [1, 1, 14, 14],
+			textFitWidth: "proportional",
+		});
+		assert.deepEqual(plain.stretchX, [[4, 20]]);
+		assert.deepEqual(plain.content, [2, 2, 28, 28]);
+		assert.equal(plain.textFitWidth, "proportional");
+		assert.equal("stretchY" in plain, false);
+
+		const sdf = await renderIcon(dot.id, dot.svg, 2, { sdf: true, stretchY: [[2, 10]] });
+		assert.deepEqual(sdf.stretchY, [[10, 26]]);
+
+		await assert.rejects(
+			renderIcon(dot.id, dot.svg, 1, { stretchX: [[2, 99]] }),
+			/invalid metadata for icon `dot`/,
+		);
+		await assert.rejects(
+			renderIcon(dot.id, dot.svg, 1, {
+				textFitWidth: "stretch" as "stretchOnly",
+			}),
+			/invalid textFitWidth/,
+		);
+	});
+
 	await context.test("renderIcon returns padded SDF pixels", async () => {
 		const dot = fixture("dot");
 		const plain = await renderIcon(dot.id, dot.svg, 2);

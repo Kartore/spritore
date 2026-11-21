@@ -1,12 +1,13 @@
 //! Golden files can be regenerated after an intentional format change with:
 //! `cargo test -p spritore-core --test golden -- --ignored regen_golden`
-//! (SDF golden files: `-- --ignored regen_sdf_golden`)
+//! (SDF golden files: `-- --ignored regen_sdf_golden`,
+//! metadata golden files: `-- --ignored regen_metadata_golden`)
 
 use std::path::{Path, PathBuf};
 
 use spritore_core::{
-	BuildOptions, RenderOptions, RenderedIcon, SpriteSheet, build_sprite_sheet, index_to_json,
-	render_icon, render_icon_with_options,
+	BuildOptions, ImageMetadata, RenderOptions, RenderedIcon, SpriteSheet, TextFit,
+	build_sprite_sheet, index_to_json, render_icon, render_icon_with_options,
 };
 
 const FIXTURES: &[(&str, &str)] = &[
@@ -42,12 +43,61 @@ fn build_sdf_both(pixel_ratio: u8) -> (SpriteSheet, SpriteSheet) {
 		.map(|&index| {
 			let (id, svg) = FIXTURES[index];
 			let sdf = id == "pin" || id == "line";
-			render_icon_with_options(id, svg, pixel_ratio, RenderOptions { sdf }).unwrap()
+			render_icon_with_options(
+				id,
+				svg,
+				pixel_ratio,
+				RenderOptions {
+					sdf,
+					..RenderOptions::default()
+				},
+			)
+			.unwrap()
 		})
 		.collect();
 	let fast = build_sprite_sheet(&icons, pixel_ratio, BuildOptions { fast: true }).unwrap();
 	let zopfli = build_sprite_sheet(&icons, pixel_ratio, BuildOptions { fast: false }).unwrap();
 	(fast, zopfli)
+}
+
+/// 9-slice / textFit のメタデータ付き (pin は SDF + stretch、line は通常 + stretch + content + textFit)
+fn build_metadata_index(pixel_ratio: u8) -> String {
+	let pin = FIXTURES[1].1;
+	let line = FIXTURES[3].1;
+	let icons = vec![
+		render_icon_with_options(
+			"pin",
+			pin,
+			pixel_ratio,
+			RenderOptions {
+				sdf: true,
+				metadata: ImageMetadata {
+					stretch_x: vec![[4.0, 11.0]],
+					stretch_y: vec![[3.0, 6.5]],
+					..ImageMetadata::default()
+				},
+			},
+		)
+		.unwrap(),
+		render_icon_with_options(
+			"line",
+			line,
+			pixel_ratio,
+			RenderOptions {
+				sdf: false,
+				metadata: ImageMetadata {
+					stretch_x: vec![[2.0, 5.0], [12.0, 15.0]],
+					stretch_y: vec![[4.0, 13.0]],
+					content: Some([2.0, 2.0, 15.0, 15.0]),
+					text_fit_width: Some(TextFit::StretchOnly),
+					text_fit_height: Some(TextFit::Proportional),
+				},
+			},
+		)
+		.unwrap(),
+	];
+	let sheet = build_sprite_sheet(&icons, pixel_ratio, BuildOptions { fast: true }).unwrap();
+	index_to_json(&sheet.index)
 }
 
 fn golden_dir() -> PathBuf {
@@ -95,6 +145,17 @@ fn sdf_assets_match_golden_bytes() {
 		assert_golden(
 			&format!("sdf{suffix}.json"),
 			index_to_json(&fast.index).as_bytes(),
+		);
+	}
+}
+
+#[test]
+fn metadata_index_matches_golden_bytes() {
+	for pixel_ratio in [1, 2] {
+		let suffix = if pixel_ratio == 1 { "" } else { "@2x" };
+		assert_golden(
+			&format!("metadata{suffix}.json"),
+			build_metadata_index(pixel_ratio).as_bytes(),
 		);
 	}
 }
@@ -152,6 +213,21 @@ fn regen_sdf_golden() {
 		std::fs::write(
 			directory.join(format!("sdf{suffix}.json")),
 			index_to_json(&fast.index),
+		)
+		.unwrap();
+	}
+}
+
+#[test]
+#[ignore = "overwrites committed golden files intentionally"]
+fn regen_metadata_golden() {
+	let directory = golden_dir();
+	std::fs::create_dir_all(&directory).unwrap();
+	for pixel_ratio in [1, 2] {
+		let suffix = if pixel_ratio == 1 { "" } else { "@2x" };
+		std::fs::write(
+			directory.join(format!("metadata{suffix}.json")),
+			build_metadata_index(pixel_ratio),
 		)
 		.unwrap();
 	}

@@ -1,0 +1,24 @@
+{
+  "line": {
+    "x": 1,
+    "y": 45,
+    "width": 34,
+    "height": 34,
+    "pixelRatio": 2,
+    "stretchX": [[4, 10], [24, 30]],
+    "stretchY": [[8, 26]],
+    "content": [4, 4, 30, 30],
+    "textFitWidth": "stretchOnly",
+    "textFitHeight": "proportional"
+  },
+  "pin": {
+    "x": 1,
+    "y": 1,
+    "width": 42,
+    "height": 42,
+    "pixelRatio": 2,
+    "sdf": true,
+    "stretchX": [[14, 28]],
+    "stretchY": [[12, 19]]
+  }
+}

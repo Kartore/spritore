@@ -200,6 +200,38 @@ map.addImage("pin", pin, { pixelRatio: 2, sdf: pin.sdf });
 In Rust, use `render_icon_with_options(id, svg, ratio, RenderOptions { sdf: true })`.
 The CLI's `--sdf` applies to every icon.
 
+## Stretchable icons (9-slice)
+
+For `icon-text-fit`, MapLibre reads per-icon `stretchX`, `stretchY`,
+`content`, `textFitWidth`, and `textFitHeight` from the sprite index. Pass
+them with an icon in **logical pixels of the SVG**; spritore writes them in
+image pixels for each pixel ratio (and shifted by the padding for SDF icons):
+
+```ts
+await buildSpriteSheet(
+	[
+		{
+			id: "label-box",
+			svg,
+			stretchX: [[4, 20]],
+			stretchY: [[4, 12]],
+			content: [4, 4, 20, 12],
+			textFitWidth: "stretchOrShrink",
+		},
+	],
+	2,
+);
+// sprite@2x.json: "stretchX": [[8, 40]], "stretchY": [[8, 24]], "content": [8, 8, 40, 24], …
+
+const box = await renderIcon("label-box", svg, 2, { stretchX: [[4, 20]] });
+map.addImage("label-box", box, { pixelRatio: 2, stretchX: box.stretchX });
+```
+
+Values must stay inside the image, and stretch ranges must be ascending and
+non-overlapping (MapLibre's rules); otherwise rendering fails. `textFitWidth`
+and `textFitHeight` accept `stretchOrShrink`, `stretchOnly`, or
+`proportional`. The CLI does not set per-icon metadata.
+
 ## Build modes
 
 The default mode prioritizes smaller PNG files and is intended for final

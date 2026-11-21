@@ -11,6 +11,6 @@
 #![warn(missing_docs)]
 
 pub use spritore_core::{
-	BuildOptions, Error, RenderOptions, RenderedIcon, SpriteIndexEntry, SpriteSheet,
-	build_sprite_sheet, index_to_json, render_icon, render_icon_with_options,
+	BuildOptions, Error, ImageMetadata, RenderOptions, RenderedIcon, SpriteIndexEntry, SpriteSheet,
+	TextFit, build_sprite_sheet, index_to_json, render_icon, render_icon_with_options,
 };

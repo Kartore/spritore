@@ -149,7 +149,10 @@ fn build(arguments: BuildArgs) -> Result<(), CliFailure> {
 					&source.id,
 					&source.svg,
 					ratio,
-					RenderOptions { sdf: arguments.sdf },
+					RenderOptions {
+						sdf: arguments.sdf,
+						..RenderOptions::default()
+					},
 				)
 			})
 			.collect::<Result<Vec<_>, _>>()
