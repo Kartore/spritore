@@ -22,7 +22,7 @@ Or add it to `Cargo.toml`:
 
 ```toml
 [dependencies]
-spritore-core = "0.3.0"
+spritore-core = "0.4.0"
 ```
 
 ## Build a sprite sheet

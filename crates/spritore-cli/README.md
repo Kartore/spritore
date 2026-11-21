@@ -53,7 +53,7 @@ Or add it to `Cargo.toml`:
 
 ```toml
 [dependencies]
-spritore = { version = "0.3.0", default-features = false }
+spritore = { version = "0.4.0", default-features = false }
 ```
 
 ```rust
